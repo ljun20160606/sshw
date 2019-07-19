@@ -3,6 +3,7 @@ package sshw
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/user"
 	"path"
@@ -50,6 +51,14 @@ func (n *Node) port() int {
 		return 22
 	}
 	return n.Port
+}
+
+func (n *Node) portStr() string {
+	return strconv.Itoa(n.port())
+}
+
+func (n *Node) addr() string {
+	return net.JoinHostPort(n.Host, n.portStr())
 }
 
 func (n *Node) password() ssh.AuthMethod {

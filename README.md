@@ -58,6 +58,7 @@ config example:
 ```
 
 # callback
+
 ```
 - name: dev server fully configured
   user: appuser
@@ -68,4 +69,27 @@ config example:
   - {cmd: 2}
   - {delay: 1500, cmd: 0}
   - {cmd: 'echo 1'}
- ```
+```
+
+# ssh-agent
+
+Support [ssh-agent](https://en.wikipedia.org/wiki/Ssh-agent)
+
+Usage:
+
+Add private to keychain
+
+```shell
+ssh-add ~/.ssh/.id_rsa
+```
+
+When jumper does not support channel, and you has no permission to modify `/etc/ssh/ssh_config`，or you won't save your private id_rsa in jumper. sshw will connect to jumper by ssh-agent.
+
+```yaml
+- name: dev server fully configured
+  user: appuser
+  host: 192.168.8.35
+  callback-shells:
+  - {cmd: 'ssh 192.168.8.36'}
+```
+

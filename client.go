@@ -1,15 +1,11 @@
 package sshw
 
 import (
-	"bufio"
 	"fmt"
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/ssh/agent"
 	"io"
-	"io/ioutil"
-	"net"
 	"os"
-	"os/user"
-	"path"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -41,78 +37,26 @@ type Client interface {
 	Login()
 }
 
+func NewClient(node *Node) Client {
+	return newClient(node)
+}
+
 type defaultClient struct {
 	clientConfig *ssh.ClientConfig
 	node         *Node
+	agent        agent.Agent
 }
 
-func genSSHConfig(node *Node) *defaultClient {
-	u, err := user.Current()
-	if err != nil {
-		l.Error(err)
-		return nil
-	}
-
-	var authMethods []ssh.AuthMethod
-
-	var pemBytes []byte
-	if node.KeyPath == "" {
-		pemBytes, err = ioutil.ReadFile(path.Join(u.HomeDir, ".ssh/id_rsa"))
-	} else {
-		pemBytes, err = ioutil.ReadFile(node.KeyPath)
-	}
-	if err != nil {
-		l.Error(err)
-	} else {
-		var signer ssh.Signer
-		if node.Passphrase != "" {
-			signer, err = ssh.ParsePrivateKeyWithPassphrase(pemBytes, []byte(node.Passphrase))
-		} else {
-			signer, err = ssh.ParsePrivateKey(pemBytes)
-		}
-		if err != nil {
-			l.Error(err)
-		} else {
-			authMethods = append(authMethods, ssh.PublicKeys(signer))
-		}
-	}
-
-	password := node.password()
-
-	if password != nil {
-		authMethods = append(authMethods, password)
-	}
-
-	authMethods = append(authMethods, ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
-		answers := make([]string, 0, len(questions))
-		for i, q := range questions {
-			fmt.Print(q)
-			if echos[i] {
-				scan := bufio.NewScanner(os.Stdin)
-				if scan.Scan() {
-					answers = append(answers, scan.Text())
-				}
-				err := scan.Err()
-				if err != nil {
-					return nil, err
-				}
-			} else {
-				b, err := terminal.ReadPassword(int(syscall.Stdin))
-				if err != nil {
-					return nil, err
-				}
-				fmt.Println()
-				answers = append(answers, string(b))
-			}
-		}
-		return answers, nil
-	}))
-
+func newClient(node *Node) *defaultClient {
 	config := &ssh.ClientConfig{
 		User:            node.user(),
-		Auth:            authMethods,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         time.Second * 10,
+	}
+
+	err := lifecycleComposite.PostInitClientConfig(node, config)
+	if err != nil {
+		l.Error(err)
 	}
 
 	config.SetDefaults()
@@ -124,64 +68,73 @@ func genSSHConfig(node *Node) *defaultClient {
 	}
 }
 
-func NewClient(node *Node) Client {
-	return genSSHConfig(node)
+func (c *defaultClient) Dial() (*ssh.Client, error) {
+	jumpNodes := c.node.Jump
+
+	if len(jumpNodes) > 0 {
+		jumpNode := jumpNodes[0]
+		jumpClient := newClient(jumpNode)
+		jumper, err := jumpClient.dial()
+		if err != nil {
+			return nil, errors.Wrap(err, "jumpNode: "+jumpNode.addr())
+		}
+
+		return c.dialByChannel(jumper)
+	}
+	return c.dial()
+}
+
+func (c *defaultClient) dial() (*ssh.Client, error) {
+	client, err := ssh.Dial("tcp", c.node.addr(), c.clientConfig)
+	if err != nil {
+		msg := err.Error()
+		// use terminal password retry
+		if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
+			fmt.Printf("%s@%s's password:", c.clientConfig.User, c.node.Host)
+			var b []byte
+			b, err = terminal.ReadPassword(int(syscall.Stdin))
+			if err == nil {
+				p := string(b)
+				if p != "" {
+					c.clientConfig.Auth = append(c.clientConfig.Auth, ssh.Password(p))
+				}
+				fmt.Println()
+				client, err = ssh.Dial("tcp", c.node.addr(), c.clientConfig)
+			}
+		}
+		return nil, err
+	}
+	return client, nil
+}
+
+func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
+	addr := c.node.addr()
+	conn, err := client.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	ncc, chans, reqs, err := ssh.NewClientConn(conn, addr, c.clientConfig)
+	if err != nil {
+		return nil, err
+	}
+	client = ssh.NewClient(ncc, chans, reqs)
+	return client, nil
 }
 
 func (c *defaultClient) Login() {
-	host := c.node.Host
-	port := strconv.Itoa(c.node.port())
-	jNodes := c.node.Jump
-
-	var client *ssh.Client
-
-	if len(jNodes) > 0 {
-		jNode := jNodes[0]
-		jc := genSSHConfig(jNode)
-		proxyClient, err := ssh.Dial("tcp", net.JoinHostPort(jNode.Host, strconv.Itoa(jNode.port())), jc.clientConfig)
-		if err != nil {
-			l.Error(err)
-			return
-		}
-		conn, err := proxyClient.Dial("tcp", net.JoinHostPort(host, port))
-		if err != nil {
-			l.Error(err)
-			return
-		}
-		ncc, chans, reqs, err := ssh.NewClientConn(conn, net.JoinHostPort(host, port), c.clientConfig)
-		if err != nil {
-			l.Error(err)
-			return
-		}
-		client = ssh.NewClient(ncc, chans, reqs)
-	} else {
-		client1, err := ssh.Dial("tcp", net.JoinHostPort(host, port), c.clientConfig)
-		client = client1
-		if err != nil {
-			msg := err.Error()
-			// use terminal password retry
-			if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
-				fmt.Printf("%s@%s's password:", c.clientConfig.User, host)
-				var b []byte
-				b, err = terminal.ReadPassword(int(syscall.Stdin))
-				if err == nil {
-					p := string(b)
-					if p != "" {
-						c.clientConfig.Auth = append(c.clientConfig.Auth, ssh.Password(p))
-					}
-					fmt.Println()
-					client, err = ssh.Dial("tcp", net.JoinHostPort(host, port), c.clientConfig)
-				}
-			}
-		}
-		if err != nil {
-			l.Error(err)
-			return
-		}
+	client, err := c.Dial()
+	if err != nil {
+		l.Error(err)
+		return
 	}
 	defer client.Close()
+	l.Infof("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion()))
 
-	l.Infof("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), host, string(client.ServerVersion()))
+	err = lifecycleComposite.PostSSHDial(c.node, client)
+	if err != nil {
+		l.Error(err)
+		return
+	}
 
 	session, err := client.NewSession()
 	if err != nil {
@@ -189,6 +142,12 @@ func (c *defaultClient) Login() {
 		return
 	}
 	defer session.Close()
+
+	err = lifecycleComposite.PostNewSession(c.node, session)
+	if err != nil {
+		l.Error(err)
+		return
+	}
 
 	fd := int(os.Stdin.Fd())
 	state, err := terminal.MakeRaw(fd)
@@ -229,18 +188,17 @@ func (c *defaultClient) Login() {
 		return
 	}
 
-	// then callback
-	for i := range c.node.CallbackShells {
-		shell := c.node.CallbackShells[i]
-		time.Sleep(shell.Delay * time.Millisecond)
-		stdinPipe.Write([]byte(shell.Cmd + "\r"))
+	err = lifecycleComposite.PostShell(c.node, stdinPipe)
+	if err != nil {
+		l.Error(err)
+		return
 	}
 
 	// change stdin to user
 	go func() {
 		_, err = io.Copy(stdinPipe, os.Stdin)
 		l.Error(err)
-		session.Close()
+		_ = session.Close()
 	}()
 
 	// interval get terminal size
@@ -272,9 +230,9 @@ func (c *defaultClient) Login() {
 	go func() {
 		for {
 			time.Sleep(time.Second * 10)
-			client.SendRequest("keepalive@openssh.com", false, nil)
+			_, _, _ = client.SendRequest("keepalive@openssh.com", false, nil)
 		}
 	}()
 
-	session.Wait()
+	_ = session.Wait()
 }
