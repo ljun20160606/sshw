@@ -30,9 +30,15 @@ type Node struct {
 	Jump           []*Node          `yaml:"jump"`
 }
 
+type CpShell struct {
+	Src string `yaml:"src"`
+	Tgt string `yaml:"tgt"`
+}
+
 type CallbackShell struct {
-	Cmd   string        `yaml:"cmd"`
-	Delay time.Duration `yaml:"delay"`
+	Cmd     string        `yaml:"cmd"`
+	CpShell CpShell       `yaml:"cp"`
+	Delay   time.Duration `yaml:"delay"`
 }
 
 func (n *Node) String() string {
@@ -113,9 +119,6 @@ func LoadSshConfig() error {
 		}
 		if hostName != "" {
 			port, _ := cfg.Get(alias, "Port")
-			if port == "" {
-				port = "22"
-			}
 			var c = new(Node)
 			c.Name = alias
 			c.Alias = alias
@@ -125,7 +128,6 @@ func LoadSshConfig() error {
 			keyPath, _ := cfg.Get(alias, "IdentityFile")
 			c.KeyPath, _ = homedir.Expand(keyPath)
 			nc = append(nc, c)
-			// fmt.Println(c.Alias, c.Host, c.User, c.Port, c.KeyPath)
 		}
 	}
 	config = nc
