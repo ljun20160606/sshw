@@ -94,30 +94,31 @@ func main() {
 }
 
 func choose(parent, trees []*sshw.Node) *sshw.Node {
+	scopeAll := deepSearch(trees)
+	var scope []*interface{}
+	var searched bool
+
 	prompt := promptui.Select{
 		Label:        "select host",
 		Items:        trees,
 		Templates:    templates,
 		Size:         20,
 		HideSelected: true,
-		Searcher: func(input string, index int) bool {
-			node := trees[index]
-			content := fmt.Sprintf("%s %s %s", node.Name, node.User, node.Host)
-			if strings.Contains(input, " ") {
-				for _, key := range strings.Split(input, " ") {
-					key = strings.TrimSpace(key)
-					if key != "" {
-						if !strings.Contains(content, key) {
-							return false
-						}
-					}
+		CustomSearch: func(input string, items []*interface{}) []*interface{} {
+			if input == "" {
+				searched = false
+				return items
+			}
+			scope = []*interface{}{}
+			for i := range scopeAll {
+				node := (*scopeAll[i]).(sshw.Node)
+				if searchMatch(input, &node) {
+					var tmp interface{} = node
+					scope = append(scope, &tmp)
 				}
-				return true
 			}
-			if strings.Contains(content, input) {
-				return true
-			}
-			return false
+			searched = true
+			return scope
 		},
 	}
 	index, _, err := prompt.Run()
@@ -125,7 +126,14 @@ func choose(parent, trees []*sshw.Node) *sshw.Node {
 		return nil
 	}
 
-	node := trees[index]
+	var node *sshw.Node
+	if searched {
+		n := (*scope[index]).(sshw.Node)
+		node = &n
+	} else {
+		node = trees[index]
+	}
+
 	if len(node.Children) > 0 {
 		first := node.Children[0]
 		if first.Name != prev {
@@ -143,4 +151,42 @@ func choose(parent, trees []*sshw.Node) *sshw.Node {
 	}
 
 	return node
+}
+
+func deepSearch(trees []*sshw.Node) []*interface{} {
+	var scope []*interface{}
+	for i := range trees {
+		deepSearchHelper(trees[i], &scope)
+	}
+	return scope
+}
+
+func deepSearchHelper(node *sshw.Node, scope *[]*interface{}) {
+	if node == nil {
+		return
+	}
+	var tmp interface{} = *node
+	*scope = append(*scope, &tmp)
+	for i := range node.Children {
+		deepSearchHelper(node.Children[i], scope)
+	}
+}
+
+func searchMatch(input string, node *sshw.Node) bool {
+	content := fmt.Sprintf("%s %s %s", node.Name, node.User, node.Host)
+	if strings.Contains(input, " ") {
+		for _, key := range strings.Split(input, " ") {
+			key = strings.TrimSpace(key)
+			if key != "" {
+				if !strings.Contains(content, key) {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	if strings.Contains(content, input) {
+		return true
+	}
+	return false
 }
