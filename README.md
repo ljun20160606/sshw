@@ -11,10 +11,10 @@ ssh client wrapper for automatic login.
 use `go get`
 
 ```
-go get -u github.com/yinheli/sshw/cmd/sshw
+go get -u github.com/ljun2016060/sshw/cmd/sshw
 ```
 
-or download binary from [releases](//github.com/yinheli/sshw/releases).
+or download binary from [releases](//github.com/ljun20160606/sshw/releases).
 
 ## config
 
