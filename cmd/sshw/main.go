@@ -96,7 +96,10 @@ func findAlias(nodes []*sshw.Node, nodeAlias string) *sshw.Node {
 			return node
 		}
 		if len(node.Children) > 0 {
-			return findAlias(node.Children, nodeAlias)
+			alias := findAlias(node.Children, nodeAlias)
+			if alias != nil {
+				return alias
+			}
 		}
 	}
 	return nil
