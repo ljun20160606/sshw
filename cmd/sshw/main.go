@@ -29,18 +29,6 @@ var (
 	}
 )
 
-func findAlias(nodes []*sshw.Node, nodeAlias string) *sshw.Node {
-	for _, node := range nodes {
-		if node.Alias == nodeAlias {
-			return node
-		}
-		if len(node.Children) > 0 {
-			return findAlias(node.Children, nodeAlias)
-		}
-	}
-	return nil
-}
-
 func main() {
 	flag.Parse()
 	if !flag.Parsed() {
@@ -74,9 +62,10 @@ func main() {
 		}
 	}
 
+	args := flag.Args()
 	// login by alias
-	if len(os.Args) > 1 {
-		var nodeAlias = os.Args[1]
+	if len(args) >= 1 {
+		var nodeAlias = args[0]
 		var nodes = sshw.GetConfig()
 		var node = findAlias(nodes, nodeAlias)
 		if node != nil {
@@ -99,6 +88,18 @@ func main() {
 	if err != nil {
 		log.Error(err)
 	}
+}
+
+func findAlias(nodes []*sshw.Node, nodeAlias string) *sshw.Node {
+	for _, node := range nodes {
+		if node.Alias == nodeAlias {
+			return node
+		}
+		if len(node.Children) > 0 {
+			return findAlias(node.Children, nodeAlias)
+		}
+	}
+	return nil
 }
 
 func choose(parent, trees []*sshw.Node) *sshw.Node {

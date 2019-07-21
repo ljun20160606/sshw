@@ -19,7 +19,7 @@ or download binary from [releases](//github.com/ljun20160606/sshw/releases).
 ## config
 
 put config file in `~/.sshw` or `~/.sshw.yml` or `~/.sshw.yaml` or `./.sshw` or `./.sshw.yml` or `./.sshw.yaml`.
-or `sshw -f ./.sshw.yaml` to set filename. 
+or `sshw -f ./.sshw.yaml` to set filename. With alias `sshw -f ./.sshw.yaml dev` 
 
 config example:
 
