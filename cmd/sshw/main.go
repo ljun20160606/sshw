@@ -18,6 +18,7 @@ var (
 	V     = flag.Bool("version", false, "show version")
 	H     = flag.Bool("help", false, "show help")
 	S     = flag.Bool("s", false, "use local ssh config '~/.ssh/config'")
+	F     = flag.String("f", "", ".sshw config filename")
 
 	log = sshw.GetLogger()
 
@@ -58,6 +59,7 @@ func main() {
 		fmt.Println("  go version :", runtime.Version())
 		return
 	}
+
 	if *S {
 		err := sshw.LoadSshConfig()
 		if err != nil {
@@ -65,7 +67,7 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		err := sshw.LoadConfig()
+		err := sshw.LoadConfig(*F)
 		if err != nil {
 			log.Error("load config error", err)
 			os.Exit(1)
