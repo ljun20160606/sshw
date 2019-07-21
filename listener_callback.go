@@ -2,56 +2,85 @@ package sshw
 
 import (
 	"fmt"
-	"golang.org/x/crypto/ssh"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
+	"regexp"
+	"sync"
 	"time"
 )
 
 func init() {
-	RegisterLifecycle(new(LifecycleCallback))
+	mutex := new(sync.Mutex)
+	lifecycleCallback := &LifecycleCallback{
+		Mutex: mutex,
+	}
+	RegisterLifecycle(&CommonLifecycle{
+		Name:          "callback",
+		PostShellFunc: lifecycleCallback.PostShell,
+		OnStdoutFunc:  lifecycleCallback.OnStdout,
+	})
 }
-
-var _ Lifecycle = new(LifecycleCallback)
 
 type LifecycleCallback struct {
+	IsError bool
+	Index   int
+	Mutex   *sync.Mutex
+	Cond    *sync.Cond
 }
 
-func (*LifecycleCallback) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
+func (l *LifecycleCallback) OnStdout(node *Node, line []byte) error {
+	l.Mutex.Lock()
+	defer l.Mutex.Unlock()
+	if len(node.CallbackShells) == 0 || l.Index == len(node.CallbackShells)-1 {
+		return nil
+	}
+	shell := node.CallbackShells[l.Index]
+	pattern := shell.ErrorPattern
+	if pattern != "" {
+		s := string(line)
+		matched, err := regexp.MatchString(pattern, s)
+		if err != nil {
+			return err
+		}
+		if matched {
+			l.IsError = true
+		}
+	}
 	return nil
 }
 
-func (*LifecycleCallback) PostSSHDial(node *Node, client *ssh.Client) error {
-	return nil
-}
-
-func (*LifecycleCallback) PostNewSession(node *Node, session *ssh.Session) error {
-	return nil
-}
-
-func (*LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
+func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 	for i := range node.CallbackShells {
+		l.Mutex.Lock()
+		if l.IsError {
+			l.Mutex.Unlock()
+			return ErrorInterrupt
+		}
+		l.Mutex.Unlock()
 		shell := node.CallbackShells[i]
 		time.Sleep(shell.Delay * time.Millisecond)
-
+		// Copy Shell
 		if shell.CpShell.Src != "" {
 			err := copyFile(shell.CpShell.Src, shell.CpShell.Tgt, stdin)
 			if err != nil {
 				return err
 			}
-			continue
+		} else {
+			// Cmd Shell
+			_, _ = stdin.Write([]byte(shell.Cmd + "\r"))
 		}
 
-		_, _ = stdin.Write([]byte(shell.Cmd + "\r"))
+		l.Mutex.Lock()
+		l.Index = i
+		l.Mutex.Unlock()
+		if shell.ErrorPattern != "" {
+			time.Sleep(1000 * time.Millisecond)
+		}
 	}
 	return nil
-}
-
-func (*LifecycleCallback) Priority() int {
-	return 0
 }
 
 func naiveRealpath(p string) string {

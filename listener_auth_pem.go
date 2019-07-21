@@ -2,23 +2,19 @@ package sshw
 
 import (
 	"golang.org/x/crypto/ssh"
-	"io"
 	"io/ioutil"
 	"os/user"
 	"path"
 )
 
 func init() {
-	RegisterLifecycle(new(LifecyclePassword))
+	RegisterLifecycle(&CommonLifecycle{
+		Name:                     "auth_pem",
+		PostInitClientConfigFunc: new(LifecyclePem).PostInitClientConfig,
+	})
 }
-
-var _ Lifecycle = new(LifecyclePem)
 
 type LifecyclePem struct {
-}
-
-func (*LifecyclePem) PostShell(node *Node, stdin io.WriteCloser) error {
-	return nil
 }
 
 func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
@@ -49,16 +45,4 @@ func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientCo
 		}
 	}
 	return nil
-}
-
-func (*LifecyclePem) PostSSHDial(node *Node, client *ssh.Client) error {
-	return nil
-}
-
-func (*LifecyclePem) PostNewSession(node *Node, session *ssh.Session) error {
-	return nil
-}
-
-func (*LifecyclePem) Priority() int {
-	return 0
 }

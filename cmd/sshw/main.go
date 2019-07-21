@@ -79,7 +79,10 @@ func main() {
 		var node = findAlias(nodes, nodeAlias)
 		if node != nil {
 			client := sshw.NewClient(node)
-			client.Login()
+			err := client.Login()
+			if err != nil {
+				log.Error(err)
+			}
 			return
 		}
 	}
@@ -90,7 +93,10 @@ func main() {
 	}
 
 	client := sshw.NewClient(node)
-	client.Login()
+	err := client.Login()
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func choose(parent, trees []*sshw.Node) *sshw.Node {

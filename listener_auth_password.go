@@ -5,22 +5,18 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
-	"io"
 	"os"
 	"syscall"
 )
 
 func init() {
-	RegisterLifecycle(new(LifecyclePassword))
+	RegisterLifecycle(&CommonLifecycle{
+		Name:                     "auth_password",
+		PostInitClientConfigFunc: new(LifecyclePassword).PostInitClientConfig,
+	})
 }
-
-var _ Lifecycle = new(LifecyclePassword)
 
 type LifecyclePassword struct {
-}
-
-func (*LifecyclePassword) PostShell(node *Node, stdin io.WriteCloser) error {
-	return nil
 }
 
 func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
@@ -55,16 +51,4 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 		return answers, nil
 	}))
 	return nil
-}
-
-func (*LifecyclePassword) PostSSHDial(node *Node, client *ssh.Client) error {
-	return nil
-}
-
-func (*LifecyclePassword) PostNewSession(node *Node, session *ssh.Session) error {
-	return nil
-}
-
-func (*LifecyclePassword) Priority() int {
-	return 0
 }

@@ -34,7 +34,7 @@ var (
 )
 
 type Client interface {
-	Login()
+	Login() error
 }
 
 func NewClient(node *Node) Client {
@@ -121,77 +121,61 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 	return client, nil
 }
 
-func (c *defaultClient) Login() {
+func (c *defaultClient) Login() error {
 	client, err := c.Dial()
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 	defer client.Close()
 	l.Infof("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion()))
 
 	err = lifecycleComposite.PostSSHDial(c.node, client)
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 
 	session, err := client.NewSession()
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 	defer session.Close()
 
 	err = lifecycleComposite.PostNewSession(c.node, session)
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 
-	fd := int(os.Stdin.Fd())
-	state, err := terminal.MakeRaw(fd)
+	// stdout
+	err = readLine(session, session.StdoutPipe, func(line []byte) error {
+		return lifecycleComposite.OnStdout(c.node, line)
+	})
 	if err != nil {
-		l.Error(err)
-		return
+		return errors.Wrap(err, "stdout")
 	}
-	defer terminal.Restore(fd, state)
 
-	w, h, err := terminal.GetSize(fd)
+	// stderr
+	err = readLine(session, session.StderrPipe, func(line []byte) error {
+		return lifecycleComposite.OnStderr(c.node, line)
+	})
 	if err != nil {
-		l.Error(err)
-		return
+		return errors.Wrap(err, "stderr")
 	}
 
-	modes := ssh.TerminalModes{
-		ssh.ECHO:          1,
-		ssh.TTY_OP_ISPEED: 14400,
-		ssh.TTY_OP_OSPEED: 14400,
-	}
-	err = session.RequestPty("xterm", h, w, modes)
-	if err != nil {
-		l.Error(err)
-		return
-	}
-
-	session.Stdout = os.Stdout
-	session.Stderr = os.Stderr
+	// stdin
 	stdinPipe, err := session.StdinPipe()
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 
+	// shell
 	err = session.Shell()
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 
 	err = lifecycleComposite.PostShell(c.node, stdinPipe)
 	if err != nil {
-		l.Error(err)
-		return
+		return err
 	}
 
 	// change stdin to user
@@ -199,31 +183,6 @@ func (c *defaultClient) Login() {
 		_, err = io.Copy(stdinPipe, os.Stdin)
 		l.Error(err)
 		_ = session.Close()
-	}()
-
-	// interval get terminal size
-	// fix resize issue
-	go func() {
-		var (
-			ow = w
-			oh = h
-		)
-		for {
-			cw, ch, err := terminal.GetSize(fd)
-			if err != nil {
-				break
-			}
-
-			if cw != ow || ch != oh {
-				err = session.WindowChange(ch, cw)
-				if err != nil {
-					break
-				}
-				ow = cw
-				oh = ch
-			}
-			time.Sleep(time.Second)
-		}
 	}()
 
 	// send keepalive
@@ -235,4 +194,9 @@ func (c *defaultClient) Login() {
 	}()
 
 	_ = session.Wait()
+	err = lifecycleComposite.PostSessionWait(c.node)
+	if err != nil {
+		return err
+	}
+	return nil
 }

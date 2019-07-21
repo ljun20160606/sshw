@@ -36,9 +36,10 @@ type CpShell struct {
 }
 
 type CallbackShell struct {
-	Cmd     string        `yaml:"cmd"`
-	CpShell CpShell       `yaml:"cp"`
-	Delay   time.Duration `yaml:"delay"`
+	Cmd          string        `yaml:"cmd"`
+	CpShell      CpShell       `yaml:"cp"`
+	Delay        time.Duration `yaml:"delay"`
+	ErrorPattern string        `yaml:"error-pattern"`
 }
 
 func (n *Node) String() string {

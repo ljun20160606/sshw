@@ -59,6 +59,10 @@ config example:
 
 # callback
 
+`callback-shells` is used to run command after ssh open a session. `error-pattern` is regex pattern that
+can be used to match message of error, it will return error if match successfully,
+but `sshw` receive output async, so if it could not match successfully, you can try let next shell delay some time.
+
 ```
 - name: dev server fully configured
   user: appuser
@@ -66,7 +70,7 @@ config example:
   port: 22
   password: 123456
   callback-shells:
-  - {cmd: 2}
+  - {cmd: 2, error-pattern: 'No such file'}
   - {delay: 1500, cmd: 0}
   - {cmd: 'echo 1'}
 ```

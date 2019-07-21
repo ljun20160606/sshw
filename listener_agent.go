@@ -3,24 +3,24 @@ package sshw
 import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
-	"io"
 	"math"
 	"net"
 	"os"
 )
 
 func init() {
-	RegisterLifecycle(new(LifecycleAgent))
+	lifecycleAgent := new(LifecycleAgent)
+	RegisterLifecycle(&CommonLifecycle{
+		Name:                     "agent",
+		PriorityFunc:             lifecycleAgent.Priority,
+		PostInitClientConfigFunc: lifecycleAgent.PostInitClientConfig,
+		PostSSHDialFunc:          lifecycleAgent.PostSSHDial,
+		PostNewSessionFunc:       lifecycleAgent.PostNewSession,
+	})
 }
-
-var _ Lifecycle = new(LifecycleAgent)
 
 type LifecycleAgent struct {
 	agent agent.Agent
-}
-
-func (l *LifecycleAgent) PostShell(node *Node, stdin io.WriteCloser) error {
-	return nil
 }
 
 func (l *LifecycleAgent) Priority() int {
