@@ -51,12 +51,7 @@ func (n *Node) user() string {
 		return "root"
 	}
 	if n.User == "$USER" {
-		u, err := user.Current()
-		if err != nil {
-			l.Error(err)
-			return ""
-		}
-		return u.Username
+		return os.Getenv("USER")
 	}
 	return n.User
 }
