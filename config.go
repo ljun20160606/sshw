@@ -50,6 +50,14 @@ func (n *Node) user() string {
 	if n.User == "" {
 		return "root"
 	}
+	if n.User == "$USER" {
+		u, err := user.Current()
+		if err != nil {
+			l.Error(err)
+			return ""
+		}
+		return u.Username
+	}
 	return n.User
 }
 

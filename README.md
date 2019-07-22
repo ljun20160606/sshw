@@ -33,14 +33,14 @@ config example:
 - { name: ⚡️ server with emoji name, host: 192.168.8.35 }
 - { name: server with alias, alias: dev, host: 192.168.8.35 }
 - name: server with jump
-   user: appuser
-   host: 192.168.8.35
-   port: 22
-   password: 123456
-   jump:
-   - user: appuser
-     host: 192.168.8.36
-     port: 2222
+  user: appuser
+  host: 192.168.8.35
+  port: 22
+  password: 123456
+  jump:
+  - user: appuser
+  host: 192.168.8.36
+  port: 2222
 
 
 # server group 1
@@ -57,6 +57,20 @@ config example:
   - { name: server 2, user: root, host: 192.168.3.3 }
   - { name: server 3, user: root, host: 192.168.4.4 }
 ```
+
+# reserved parameter
+
+`$USER` is used to get `user`
+
+Usage:
+
+```yaml
+- { name: dev server fully configured, user: $USER, host: 192.168.8.35 }
+```
+
+
+
+sshw will use current-user to ssh server
 
 # callback
 
