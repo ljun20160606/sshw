@@ -1,4 +1,4 @@
-module github.com/yinheli/sshw
+module github.com/ljun20160606/sshw
 
 require (
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
