@@ -40,6 +40,7 @@ type CallbackShell struct {
 	CpShell      CpShell       `yaml:"cp"`
 	Delay        time.Duration `yaml:"delay"`
 	ErrorPattern string        `yaml:"error-pattern"`
+	Wait 				 time.Duration `yaml:"wait"`
 }
 
 func (n *Node) String() string {

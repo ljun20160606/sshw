@@ -61,6 +61,7 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 		}
 		l.Mutex.Unlock()
 		shell := node.CallbackShells[i]
+		// delay
 		time.Sleep(shell.Delay * time.Millisecond)
 		// Copy Shell
 		if shell.CpShell.Src != "" {
@@ -76,6 +77,9 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 		l.Mutex.Lock()
 		l.Index = i
 		l.Mutex.Unlock()
+		// wait
+		time.Sleep(shell.Wait * time.Millisecond)
+		// wait error
 		if shell.ErrorPattern != "" {
 			time.Sleep(1000 * time.Millisecond)
 		}

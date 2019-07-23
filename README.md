@@ -76,7 +76,9 @@ sshw will use current-user to ssh server
 
 `callback-shells` is used to run command after ssh open a session. `error-pattern` is regex pattern that
 can be used to match message of error, it will return error if match successfully,
-but `sshw` receive output async, so if it could not match successfully, you can try let next shell delay some time.
+but `sshw` receive output async, so if it could not match successfully, you can try wait some time.
+
+`delay` mean before cmd, 'wait' mean after cmd
 
 ```
 - name: dev server fully configured
@@ -88,6 +90,7 @@ but `sshw` receive output async, so if it could not match successfully, you can 
   - {cmd: 2, error-pattern: 'No such file'}
   - {delay: 1500, cmd: 0}
   - {cmd: 'echo 1'}
+  - {cmd: 'exit 1', wait: 1000}
 ```
 
 # ssh-agent
