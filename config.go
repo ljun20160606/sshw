@@ -17,30 +17,36 @@ import (
 )
 
 type Node struct {
-	Name           string           `yaml:"name"`
-	Alias          string           `yaml:"alias"`
-	Host           string           `yaml:"host"`
-	User           string           `yaml:"user"`
-	Port           int              `yaml:"port"`
-	KeyPath        string           `yaml:"keypath"`
-	Passphrase     string           `yaml:"passphrase"`
-	Password       string           `yaml:"password"`
-	CallbackShells []*CallbackShell `yaml:"callback-shells"`
-	Children       []*Node          `yaml:"children"`
-	Jump           []*Node          `yaml:"jump"`
+	Name           string               `yaml:"name"`
+	Alias          string               `yaml:"alias"`
+	ExecsPre       []*NodeExec          `yaml:"execs-pre"`
+	ExecsStop      []*NodeExec          `yaml:"execs-stop"`
+	Host           string               `yaml:"host"`
+	User           string               `yaml:"user"`
+	Port           int                  `yaml:"port"`
+	KeyPath        string               `yaml:"keypath"`
+	Passphrase     string               `yaml:"passphrase"`
+	Password       string               `yaml:"password"`
+	CallbackShells []*NodeCallbackShell `yaml:"callback-shells"`
+	Children       []*Node              `yaml:"children"`
+	Jump           []*Node              `yaml:"jump"`
 }
 
-type CpShell struct {
-	Src string `yaml:"src"`
-	Tgt string `yaml:"tgt"`
+type NodeExec struct {
+	Cmd string `yaml:"cmd"`
 }
 
-type CallbackShell struct {
+type NodeCallbackShell struct {
 	Cmd          string        `yaml:"cmd"`
-	CpShell      CpShell       `yaml:"cp"`
+	CpShell      NodeCp        `yaml:"cp"`
 	Delay        time.Duration `yaml:"delay"`
 	ErrorPattern string        `yaml:"error-pattern"`
-	Wait 				 time.Duration `yaml:"wait"`
+	Wait         time.Duration `yaml:"wait"`
+}
+
+type NodeCp struct {
+	Src string `yaml:"src"`
+	Tgt string `yaml:"tgt"`
 }
 
 func (n *Node) String() string {

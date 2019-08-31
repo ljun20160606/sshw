@@ -6,6 +6,7 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -122,6 +123,14 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 }
 
 func (c *defaultClient) Login() error {
+	err := execs(c.node.ExecsPre)
+	if err != nil {
+		return err
+	}
+	if len(c.node.ExecsPre) != 0 && c.node.Host == "" {
+		return nil
+	}
+
 	client, err := c.Dial()
 	if err != nil {
 		return err
@@ -197,6 +206,31 @@ func (c *defaultClient) Login() error {
 	err = lifecycleComposite.PostSessionWait(c.node)
 	if err != nil {
 		return err
+	}
+	err = execs(c.node.ExecsStop)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func execs(execs []*NodeExec) error {
+	for i := range execs {
+		nodeExec := execs[i]
+		cmdStr := nodeExec.Cmd
+		fields := strings.Fields(cmdStr)
+		if len(fields) == 0 {
+			return errors.New("illegal cmd, cause parse fields get zero, cmd: " + cmdStr)
+		}
+		command := exec.Command(fields[0], fields[1:]...)
+		command.Stdout = os.Stdout
+		command.Stderr = os.Stderr
+		command.Stdin = os.Stdin
+		_, _ = io.WriteString(os.Stdout, cmdStr+"\n")
+		err := command.Run()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

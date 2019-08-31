@@ -126,3 +126,29 @@ Callback support cp file to remote from local, it will convert src file to hex, 
   callback-shells:
   - { cp: { src: '~/test.txt', tgt: '/tmp/test.txt' } }
 ```
+
+# execs
+
+Run command before ssh dial or after cancel ssh dial. `execs-pre` is before dial. `execs-stop` is after cancel ssh,
+but it's important to note that `execs-stop` only run in host does exist.
+
+If only needs to run command.
+
+```yaml
+- name: command-checklist
+  execs-pre:
+  - cmd: "echo command-checklist"
+  - cmd: "something else" 
+```
+
+If run command after cancel ssh.
+
+```yaml
+- name: tell-some
+  host: localhost
+  callback-shells:
+  - {cmd: 'echo login localhost'}
+  - {cmd: 'exit 0'}
+  execs-stop:
+  - cmd: 'echo exit ssh'
+```
