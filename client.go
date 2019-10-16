@@ -214,15 +214,20 @@ func (c *defaultClient) Login() error {
 	return nil
 }
 
+func shell() string {
+	currentShell := os.Getenv("SHELL")
+	if currentShell == "" {
+		return "/bin/sh"
+	}
+	return currentShell
+}
+
 func execs(execs []*NodeExec) error {
+	currentShell := shell()
 	for i := range execs {
 		nodeExec := execs[i]
 		cmdStr := nodeExec.Cmd
-		fields := strings.Fields(cmdStr)
-		if len(fields) == 0 {
-			return errors.New("illegal cmd, cause parse fields get zero, cmd: " + cmdStr)
-		}
-		command := exec.Command(fields[0], fields[1:]...)
+		command := exec.Command(currentShell, "-c", cmdStr)
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
 		command.Stdin = os.Stdin
