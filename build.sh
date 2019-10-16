@@ -7,7 +7,7 @@ input="./cmd/sshw"
 go=go
 
 if [[ "$1" = "" ]];then
-    version=v1.3.0
+    version=v1.3.1
 fi
 
 output="out/"
