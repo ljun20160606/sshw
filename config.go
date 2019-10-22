@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -97,7 +98,17 @@ func GetConfig() []*Node {
 	return config
 }
 
-func LoadConfig(filename string) error {
+func PrepareConfig() error {
+	return WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value) {
+		if t.Kind() != reflect.String || !v.CanSet() {
+			return
+		}
+		r := ParseSshwTemplate(v.Interface().(string)).Execute()
+		v.Set(reflect.ValueOf(r))
+	})
+}
+
+func LoadYamlConfig(filename string) error {
 	var b []byte
 	var err error
 	if filename != "" {

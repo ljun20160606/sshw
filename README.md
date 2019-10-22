@@ -154,3 +154,13 @@ If run command after cancel ssh.
   execs-stop:
   - cmd: 'echo exit ssh'
 ```
+
+# template
+
+Environment variable could be read if the value is string, use `${param:defaultValue}`. Support escape, read as literal `${foo}` if use `\${foo}`.
+
+```yaml
+- name: ${name}
+  execs-pre:
+  - {cmd: 'echo ${content} localhost'}
+```

@@ -49,29 +49,31 @@ func main() {
 	}
 
 	if *S {
-		err := sshw.LoadSshConfig()
-		if err != nil {
-			log.Error("load ssh config error", err)
+		if err := sshw.LoadSshConfig(); err != nil {
+			log.Error("load ssh config", err)
 			os.Exit(1)
 		}
 	} else {
-		err := sshw.LoadConfig(*F)
-		if err != nil {
-			log.Error("load config error", err)
+		if err := sshw.LoadYamlConfig(*F); err != nil {
+			log.Error("load yaml config", err)
 			os.Exit(1)
 		}
 	}
+	if err := sshw.PrepareConfig(); err != nil {
+		log.Error("prepare config", err)
+		os.Exit(1)
+	}
+
+	var nodes = sshw.GetConfig()
 
 	args := flag.Args()
 	// login by alias
 	if len(args) >= 1 {
 		var nodeAlias = args[0]
-		var nodes = sshw.GetConfig()
 		var node = findAlias(nodes, nodeAlias)
 		if node != nil {
 			client := sshw.NewClient(node)
-			err := client.Login()
-			if err != nil {
+			if err := client.Login(); err != nil {
 				log.Error(err)
 			}
 			return
@@ -84,8 +86,7 @@ func main() {
 	}
 
 	client := sshw.NewClient(node)
-	err := client.Login()
-	if err != nil {
+	if err := client.Login(); err != nil {
 		log.Error(err)
 	}
 }
