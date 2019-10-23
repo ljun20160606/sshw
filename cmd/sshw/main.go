@@ -14,9 +14,8 @@ import (
 const prev = "-parent-"
 
 var (
-	Build = "devel"
-	V     = flag.Bool("version", false, "show version")
-	H     = flag.Bool("help", false, "show help")
+	V     = flag.Bool("v", false, "show version")
+	H     = flag.Bool("h", false, "show help")
 	S     = flag.Bool("s", false, "use local ssh config '~/.ssh/config'")
 	F     = flag.String("f", "", ".sshw config filename")
 
@@ -28,6 +27,8 @@ var (
 		Inactive: "  {{.Name | faint}}{{if .Alias}}({{.Alias | faint}}){{end}} {{if .Host}}{{if .User}}{{.User | faint}}{{`@` | faint}}{{end}}{{.Host | faint}}{{end}}",
 	}
 )
+
+var Version string
 
 func main() {
 	flag.Parse()
@@ -43,8 +44,8 @@ func main() {
 
 	if *V {
 		fmt.Println("sshw - ssh client wrapper for automatic login")
-		fmt.Println("  git version:", Build)
-		fmt.Println("  go version :", runtime.Version())
+		fmt.Println("go version:", runtime.Version())
+		fmt.Println("version:", Version)
 		return
 	}
 
