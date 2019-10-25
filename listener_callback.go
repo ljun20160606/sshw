@@ -65,8 +65,7 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 		time.Sleep(shell.Delay * time.Millisecond)
 		// Copy Shell
 		if shell.CpShell.Src != "" {
-			err := copyFile(shell.CpShell.Src, shell.CpShell.Tgt, stdin)
-			if err != nil {
+			if err := copyFile(shell.CpShell.Src, shell.CpShell.Tgt, stdin); err != nil {
 				return err
 			}
 		} else {

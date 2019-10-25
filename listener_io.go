@@ -69,8 +69,7 @@ func readLine(session *ssh.Session, getReader func() (io.Reader, error), lineSol
 					continue
 				}
 
-				err := lineSolver(buf)
-				if err != nil {
+				if err := lineSolver(buf); err != nil {
 					l.Error(err)
 					_ = session.Close()
 					return

@@ -35,8 +35,7 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 				if scan.Scan() {
 					answers = append(answers, scan.Text())
 				}
-				err := scan.Err()
-				if err != nil {
+				if err := scan.Err(); err != nil {
 					return nil, err
 				}
 			} else {

@@ -41,8 +41,7 @@ func (l *LifecycleAgent) PostInitClientConfig(node *Node, clientConfig *ssh.Clie
 
 func (l *LifecycleAgent) PostSSHDial(node *Node, client *ssh.Client) error {
 	if l.agent != nil {
-		err := agent.ForwardToAgent(client, l.agent)
-		if err != nil {
+		if err := agent.ForwardToAgent(client, l.agent); err != nil {
 			return err
 		}
 	}
@@ -51,8 +50,7 @@ func (l *LifecycleAgent) PostSSHDial(node *Node, client *ssh.Client) error {
 
 func (l *LifecycleAgent) PostNewSession(node *Node, session *ssh.Session) error {
 	if l.agent != nil {
-		err := agent.RequestAgentForwarding(session)
-		if err != nil {
+		if err := agent.RequestAgentForwarding(session); err != nil {
 			return err
 		}
 	}

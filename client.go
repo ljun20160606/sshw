@@ -55,8 +55,7 @@ func newClient(node *Node) *defaultClient {
 		Timeout:         time.Second * 10,
 	}
 
-	err := lifecycleComposite.PostInitClientConfig(node, config)
-	if err != nil {
+	if err := lifecycleComposite.PostInitClientConfig(node, config); err != nil {
 		l.Error(err)
 	}
 
@@ -123,8 +122,7 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 }
 
 func (c *defaultClient) Login() error {
-	err := execs(c.node.ExecsPre)
-	if err != nil {
+	if err := execs(c.node.ExecsPre); err != nil {
 		return err
 	}
 	if len(c.node.ExecsPre) != 0 && c.node.Host == "" {
@@ -138,8 +136,7 @@ func (c *defaultClient) Login() error {
 	defer client.Close()
 	l.Infof("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion()))
 
-	err = lifecycleComposite.PostSSHDial(c.node, client)
-	if err != nil {
+	if err = lifecycleComposite.PostSSHDial(c.node, client); err != nil {
 		return err
 	}
 
@@ -149,24 +146,21 @@ func (c *defaultClient) Login() error {
 	}
 	defer session.Close()
 
-	err = lifecycleComposite.PostNewSession(c.node, session)
-	if err != nil {
+	if err := lifecycleComposite.PostNewSession(c.node, session); err != nil {
 		return err
 	}
 
 	// stdout
-	err = readLine(session, session.StdoutPipe, func(line []byte) error {
+	if err := readLine(session, session.StdoutPipe, func(line []byte) error {
 		return lifecycleComposite.OnStdout(c.node, line)
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.Wrap(err, "stdout")
 	}
 
 	// stderr
-	err = readLine(session, session.StderrPipe, func(line []byte) error {
+	if err := readLine(session, session.StderrPipe, func(line []byte) error {
 		return lifecycleComposite.OnStderr(c.node, line)
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.Wrap(err, "stderr")
 	}
 
@@ -177,13 +171,11 @@ func (c *defaultClient) Login() error {
 	}
 
 	// shell
-	err = session.Shell()
-	if err != nil {
+	if err := session.Shell(); err != nil {
 		return err
 	}
 
-	err = lifecycleComposite.PostShell(c.node, stdinPipe)
-	if err != nil {
+	if err = lifecycleComposite.PostShell(c.node, stdinPipe); err != nil {
 		return err
 	}
 
@@ -203,12 +195,10 @@ func (c *defaultClient) Login() error {
 	}()
 
 	_ = session.Wait()
-	err = lifecycleComposite.PostSessionWait(c.node)
-	if err != nil {
+	if err := lifecycleComposite.PostSessionWait(c.node); err != nil {
 		return err
 	}
-	err = execs(c.node.ExecsStop)
-	if err != nil {
+	if err := execs(c.node.ExecsStop); err != nil {
 		return err
 	}
 	return nil
@@ -232,8 +222,7 @@ func execs(execs []*NodeExec) error {
 		command.Stderr = os.Stderr
 		command.Stdin = os.Stdin
 		_, _ = io.WriteString(os.Stdout, cmdStr+"\n")
-		err := command.Run()
-		if err != nil {
+		if err := command.Run(); err != nil {
 			return err
 		}
 	}

@@ -79,8 +79,7 @@ func shortCircuitCycle(queue LifecycleQueue, f func(Lifecycle) error) error {
 		}
 		pop := heap.Pop(&queues)
 		lifecycle := pop.(Lifecycle)
-		err := f(lifecycle)
-		if err != nil {
+		if err := f(lifecycle); err != nil {
 			return err
 		}
 	}
@@ -88,8 +87,7 @@ func shortCircuitCycle(queue LifecycleQueue, f func(Lifecycle) error) error {
 
 func (l *LifecycleComposite) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.PostInitClientConfig(node, clientConfig)
-		if err != nil {
+		if err := lifecycle.PostInitClientConfig(node, clientConfig); err != nil {
 			return errors.Wrap(err, "Error at PostInitClientConfig")
 		}
 		return nil
@@ -98,8 +96,7 @@ func (l *LifecycleComposite) PostInitClientConfig(node *Node, clientConfig *ssh.
 
 func (l *LifecycleComposite) PostSSHDial(node *Node, client *ssh.Client) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.PostSSHDial(node, client)
-		if err != nil {
+		if err := lifecycle.PostSSHDial(node, client); err != nil {
 			return errors.Wrap(err, "Error at PostSSHDial")
 		}
 		return nil
@@ -108,8 +105,7 @@ func (l *LifecycleComposite) PostSSHDial(node *Node, client *ssh.Client) error {
 
 func (l *LifecycleComposite) PostNewSession(node *Node, session *ssh.Session) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.PostNewSession(node, session)
-		if err != nil {
+		if err := lifecycle.PostNewSession(node, session); err != nil {
 			return errors.Wrap(err, "Error at PostNewSession")
 		}
 		return nil
@@ -118,8 +114,7 @@ func (l *LifecycleComposite) PostNewSession(node *Node, session *ssh.Session) er
 
 func (l *LifecycleComposite) PostShell(node *Node, stdin io.WriteCloser) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.PostShell(node, stdin)
-		if err != nil && err != ErrorInterrupt {
+		if err := lifecycle.PostShell(node, stdin); err != nil && err != ErrorInterrupt {
 			return errors.Wrap(err, "Error at PostShell")
 		}
 		return nil
@@ -128,8 +123,7 @@ func (l *LifecycleComposite) PostShell(node *Node, stdin io.WriteCloser) error {
 
 func (l *LifecycleComposite) OnStdout(node *Node, line []byte) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.OnStdout(node, line)
-		if err != nil {
+		if err := lifecycle.OnStdout(node, line); err != nil {
 			return errors.Wrap(err, "Error at OnStdout")
 		}
 		return nil
@@ -138,8 +132,7 @@ func (l *LifecycleComposite) OnStdout(node *Node, line []byte) error {
 
 func (l *LifecycleComposite) OnStderr(node *Node, line []byte) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.OnStderr(node, line)
-		if err != nil {
+		if err := lifecycle.OnStderr(node, line); err != nil {
 			return errors.Wrap(err, "Error at OnStderr")
 		}
 		return nil
@@ -148,8 +141,7 @@ func (l *LifecycleComposite) OnStderr(node *Node, line []byte) error {
 
 func (l *LifecycleComposite) PostSessionWait(node *Node) error {
 	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		err := lifecycle.PostSessionWait(node)
-		if err != nil {
+		if err := lifecycle.PostSessionWait(node); err != nil {
 			return errors.Wrap(err, "Error at OnStderr")
 		}
 		return nil
