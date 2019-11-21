@@ -22,4 +22,4 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 )
 
-replace github.com/manifoldco/promptui => github.com/ljun20160606/promptui v0.4.0
+replace github.com/manifoldco/promptui => github.com/ljun20160606/promptui v0.5.0
