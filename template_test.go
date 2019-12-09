@@ -32,6 +32,32 @@ func TestParseSshwTemplate(t *testing.T) {
 			want: "tester",
 		},
 		{
+			name: "multiParams-useFirst",
+			args: args{
+				src: "${FIRST,SECOND}",
+				pre: func() {
+					_ = os.Setenv("FIRST", "FIRST")
+				},
+				post: func() {
+					_ = os.Setenv("FIRST", "")
+				},
+			},
+			want: "FIRST",
+		},
+		{
+			name: "multiParams-useSecond",
+			args: args{
+				src: "${FIRST,SECOND}",
+				pre: func() {
+					_ = os.Setenv("SECOND", "SECOND")
+				},
+				post: func() {
+					_ = os.Setenv("SECOND", "")
+				},
+			},
+			want: "SECOND",
+		},
+		{
 			name: "escape",
 			args: args{src: "\\${ANYUSER}"},
 			want: "${ANYUSER}",

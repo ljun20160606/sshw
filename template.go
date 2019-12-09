@@ -73,6 +73,7 @@ type CustomTemplate struct {
 
 func (c *CustomTemplate) Execute() string {
 	builder := strings.Builder{}
+	TEMPLATE:
 	for i := range c.Templates {
 		templateNode := c.Templates[i]
 		switch templateNode.Type {
@@ -84,17 +85,21 @@ func (c *CustomTemplate) Execute() string {
 				builder.WriteString(templateNode.Value)
 				continue
 			}
-			splitN := strings.SplitN(s, ":", 2)
-			envKey := splitN[0]
-			envValue := os.Getenv(envKey)
-			if envValue != "" {
-				builder.WriteString(envValue)
+			spiltColon := strings.SplitN(s, ":", 2)
+			envKeys := spiltColon[0]
+			splitComma := strings.Split(envKeys, ",")
+			for i := range splitComma {
+				envKey := splitComma[i]
+				envValue := os.Getenv(envKey)
+				if envValue != "" {
+					builder.WriteString(envValue)
+					continue TEMPLATE
+				}
+			}
+			if len(spiltColon) == 1 {
 				continue
 			}
-			if len(splitN) == 1 {
-				continue
-			}
-			defaultValue := splitN[1]
+			defaultValue := spiltColon[1]
 			if defaultValue != "" {
 				builder.WriteString(defaultValue)
 				continue
@@ -123,6 +128,12 @@ func NewParamNode(v string) *TemplateNode {
 	}
 }
 
+// Parse string to Template
+// For example:
+// INPUT:
+// ParseSshwTemplate("Foo${foo:a}bar")
+// OUTPUT:
+// []{{Type: TypeStr, Value: "Foo"}, {Type: TypeParam}, Value: "${foo:a}"}, {Type: TypeStr, Value: "bar"}}
 func ParseSshwTemplate(src string) *CustomTemplate {
 	if src == "" {
 		return &CustomTemplate{}

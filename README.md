@@ -157,7 +157,8 @@ If run command after cancel ssh.
 
 # template
 
-Environment variable could be read if the value is string, use `${param:defaultValue}`. Support escape, read as literal `${foo}` if use `\${foo}`.
+Environment variable could be read if the value is string, use `${param1,param2:defaultValue}`, it would be rendered by any one which is not empty value of `param1` `param2`.
+Support escape, read as literal `${foo}` if use `\${foo}`.
 
 ```yaml
 - name: ${name}
