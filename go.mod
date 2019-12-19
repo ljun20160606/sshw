@@ -5,7 +5,9 @@ go 1.13
 require (
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/atrox/homedir v1.0.0
+	github.com/dustin/go-humanize v1.0.0
 	github.com/gordonklaus/ineffassign v0.0.0-20190601041439-ed7b1b5ee0f8 // indirect
+	github.com/hashicorp/go-version v1.2.0
 	github.com/kevinburke/ssh_config v0.0.0-20190630040420-2e50c441276c
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/magefile/mage v1.8.0
