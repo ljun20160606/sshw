@@ -1,94 +1,90 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 
 	"github.com/ljun20160606/sshw"
 	"github.com/manifoldco/promptui"
+	"github.com/spf13/cobra"
 )
 
 const prev = "-parent-"
 
 var (
-	V     = flag.Bool("v", false, "show version")
-	H     = flag.Bool("h", false, "show help")
-	S     = flag.Bool("s", false, "use local ssh config '~/.ssh/config'")
-	F     = flag.String("f", "", ".sshw config filename")
-
-	log = sshw.GetLogger()
-
+	log       = sshw.GetLogger()
 	templates = &promptui.SelectTemplates{
 		Label:    "✨ {{ . | green}}",
 		Active:   "➤ {{ .Name | cyan  }}{{if .Alias}}({{.Alias | yellow}}){{end}} {{if .Host}}{{if .User}}{{.User | faint}}{{`@` | faint}}{{end}}{{.Host | faint}}{{end}}",
 		Inactive: "  {{.Name | faint}}{{if .Alias}}({{.Alias | faint}}){{end}} {{if .Host}}{{if .User}}{{.User | faint}}{{`@` | faint}}{{end}}{{.Host | faint}}{{end}}",
 	}
+	Version string
 )
 
-var Version string
+var (
+	rootCmd = &cobra.Command{}
+)
 
-func main() {
-	flag.Parse()
-	if !flag.Parsed() {
-		flag.Usage()
-		return
-	}
+func init() {
+	rootCmd.PersistentFlags().BoolP("ssh", "s", false, "use local ssh config '~/.ssh/config'")
+	rootCmd.PersistentFlags().StringP("filename", "f", "", ".sshw config filename")
+	rootCmd.PersistentFlags().BoolP("version", "v", false, "show version")
 
-	if *H {
-		flag.Usage()
-		return
-	}
-
-	if *V {
-		fmt.Println("sshw - ssh client wrapper for automatic login")
-		fmt.Println("go version:", runtime.Version())
-		fmt.Println("version:", Version)
-		return
-	}
-
-	if *S {
-		if err := sshw.LoadSshConfig(); err != nil {
-			log.Error("load ssh config", err)
-			os.Exit(1)
-		}
-	} else {
-		if err := sshw.LoadYamlConfig(*F); err != nil {
-			log.Error("load yaml config", err)
-			os.Exit(1)
-		}
-	}
-	if err := sshw.PrepareConfig(); err != nil {
-		log.Error("prepare config", err)
-		os.Exit(1)
-	}
-
-	var nodes = sshw.GetConfig()
-
-	args := flag.Args()
-	// login by alias
-	if len(args) >= 1 {
-		var nodeAlias = args[0]
-		var node = findAlias(nodes, nodeAlias)
-		if node != nil {
-			client := sshw.NewClient(node)
-			if err := client.Login(); err != nil {
-				log.Error(err)
-			}
+	rootCmd.Run = func(cmd *cobra.Command, args []string) {
+		if v := rootCmd.PersistentFlags().Lookup("version").Value.String(); v == "true" {
+			fmt.Println("sshw - ssh client wrapper for automatic login")
+			fmt.Println("go version:", runtime.Version())
+			fmt.Println("version:", Version)
 			return
 		}
-	}
+		if useSsh := rootCmd.PersistentFlags().Lookup("ssh").Value.String(); useSsh == "true" {
+			if err := sshw.LoadSshConfig(); err != nil {
+				log.Error("load ssh config", err)
+				return
+			}
+		} else {
+			filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
+			if err := sshw.LoadYamlConfig(filename); err != nil {
+				log.Error("load yaml config", err)
+				return
+			}
+		}
+		if err := sshw.PrepareConfig(); err != nil {
+			log.Error("prepare config", err)
+			return
+		}
 
-	node := choose(nil, sshw.GetConfig())
-	if node == nil {
-		return
-	}
+		var nodes = sshw.GetConfig()
 
-	client := sshw.NewClient(node)
-	if err := client.Login(); err != nil {
-		log.Error(err)
+		// login by alias
+		if len(args) >= 1 {
+			var nodeAlias = args[0]
+			var node = findAlias(nodes, nodeAlias)
+			if node != nil {
+				client := sshw.NewClient(node)
+				if err := client.Login(); err != nil {
+					log.Error(err)
+				}
+				return
+			}
+		}
+
+		node := choose(nil, sshw.GetConfig())
+		if node == nil {
+			return
+		}
+
+		client := sshw.NewClient(node)
+		if err := client.Login(); err != nil {
+			log.Error(err)
+		}
+	}
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
 	}
 }
 
