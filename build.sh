@@ -12,7 +12,7 @@ fi
 
 output="out/"
 
-Build() {
+OnlyBuild() {
     goarm=$4
     if [[ "$4" = "" ]];then
         goarm=7
@@ -25,6 +25,10 @@ Build() {
     else
         $go build -ldflags "-X main.Version=$version -s -w" -o "$output/$1/$name" $input
     fi
+}
+
+Build() {
+    OnlyBuild $*
 
     Pack $1
 }
@@ -42,12 +46,18 @@ Pack() {
     cd ..
 }
 
-# OS X / macOS
-Build $name-$version"-darwin-osx-amd64" darwin amd64
+InstallDarwin() {
+    n=$name-$version"-darwin-osx-amd64"
+    OnlyBuild ${n} darwin amd64
+    mv $output/${n}/$name $(go env GOPATH)/bin
+}
 
-# Windows
-Build $name-$version"-windows-x86" windows 386
-Build $name-$version"-windows-x64" windows amd64
-
-# Linux
-Build $name-$version"-linux-amd64" linux amd64
+BuildAll() {
+    # OS X / macOS
+    Build $name-$version"-darwin-osx-amd64" darwin amd64
+    # Windows
+    Build $name-$version"-windows-x86" windows 386
+    Build $name-$version"-windows-x64" windows amd64
+    # Linux
+    Build $name-$version"-linux-amd64" linux amd64
+}
