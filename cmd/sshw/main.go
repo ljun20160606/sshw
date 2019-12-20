@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/hashicorp/go-version"
 	"runtime"
 	"strings"
 
@@ -33,12 +34,39 @@ var (
 		Use:   "latest",
 		Short: "get latest version in remote",
 		Run: func(cmd *cobra.Command, args []string) {
-			version, err := githubRepository.LatestVersion()
+			versionMeta, err := githubRepository.LatestVersion()
 			if err != nil {
 				log.Error(err)
 				return
 			}
-			fmt.Println("latest version:", version)
+			fmt.Println("latest version:", versionMeta.Version)
+		},
+	}
+	upgradeCmd = &cobra.Command{
+		Use:   "upgrade",
+		Short: "upgrade sshw",
+		Run: func(cmd *cobra.Command, args []string) {
+			versionMeta, err := githubRepository.LatestVersion()
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			remoteVersion, err := version.NewVersion(versionMeta.Version)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			localVersion, err := version.NewVersion(Version)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			if localVersion.Compare(remoteVersion) >= 0 {
+				fmt.Println("localVersion: ", Version)
+				fmt.Println("remoteVersion: ", versionMeta.Version)
+				fmt.Println("local is latest.")
+				return
+			}
 		},
 	}
 )
@@ -98,6 +126,7 @@ func init() {
 		}
 	}
 	rootCmd.AddCommand(latestCmd)
+	rootCmd.AddCommand(upgradeCmd)
 }
 
 func main() {

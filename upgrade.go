@@ -15,7 +15,7 @@ import (
 
 type Repository interface {
 	// get remote version
-	LatestVersion() (string, error)
+	LatestVersion() (*VersionMeta, error)
 
 	// download remote file to specified path
 	Download(versionMeta *VersionMeta) (*os.File, error)
@@ -37,15 +37,7 @@ func (g *GithubRepository) releases() string {
 	return g.url() + "/releases"
 }
 
-func (g *GithubRepository) LatestVersion() (string, error) {
-	meta, err := g.latestVersion()
-	if err != nil {
-		return "", err
-	}
-	return meta.Version, nil
-}
-
-func (g *GithubRepository) latestVersion() (*VersionMeta, error) {
+func (g *GithubRepository) LatestVersion() (*VersionMeta, error) {
 	system, err := findSupportSystem()
 	if err != nil {
 		return nil, err
