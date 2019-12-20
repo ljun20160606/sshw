@@ -23,7 +23,24 @@ var (
 )
 
 var (
-	rootCmd = &cobra.Command{}
+	githubRepository = &sshw.GithubRepository{
+		Url:      "https://github.com",
+		Username: "ljun20160606",
+		Name:     "sshw",
+	}
+	rootCmd   = &cobra.Command{}
+	latestCmd = &cobra.Command{
+		Use:   "latest",
+		Short: "get latest version in remote",
+		Run: func(cmd *cobra.Command, args []string) {
+			version, err := githubRepository.LatestVersion()
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			fmt.Println("latest version:", version)
+		},
+	}
 )
 
 func init() {
@@ -80,6 +97,7 @@ func init() {
 			log.Error(err)
 		}
 	}
+	rootCmd.AddCommand(latestCmd)
 }
 
 func main() {
