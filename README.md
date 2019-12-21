@@ -16,6 +16,20 @@ go get -u github.com/ljun2016060/sshw/cmd/sshw
 
 or download binary from [releases](//github.com/ljun20160606/sshw/releases).
 
+## upgrade
+
+show latest version
+
+```shell
+sshw latest
+```
+
+upgrade sshw
+
+```shell
+sshw upgrade
+```
+
 ## config
 
 put config file in `~/.sshw` or `~/.sshw.yml` or `~/.sshw.yaml` or `./.sshw` or `./.sshw.yml` or `./.sshw.yaml`.
