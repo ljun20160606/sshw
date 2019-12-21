@@ -14,6 +14,7 @@ var g = &GithubRepository{
 }
 
 func TestGithubRepository_LatestVersions(t *testing.T) {
+	t.SkipNow()
 	ast := assert.New(t)
 
 	v, err := g.LatestVersion()
@@ -28,6 +29,7 @@ func TestGithubRepository_LatestVersions(t *testing.T) {
 }
 
 func TestGithubRepository_Download(t *testing.T) {
+	t.SkipNow()
 	ast := assert.New(t)
 	meta, err := g.LatestVersion()
 	ast.Nil(err)
@@ -36,6 +38,7 @@ func TestGithubRepository_Download(t *testing.T) {
 }
 
 func TestLocalExtraBinary(t *testing.T) {
+	t.SkipNow()
 	ast := assert.New(t)
 	f := "/var/folders/lt/y_vkfnbd5ll7_dn4s1rknkz40000gn/T/sshw-v1.4.1-darwin-osx-amd64.zip274860995"
 	file, err := ExtractBinary(f, true)

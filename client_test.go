@@ -3,6 +3,7 @@ package sshw
 import "testing"
 
 func Test_execs(t *testing.T) {
+	t.SkipNow()
 	type args struct {
 		execs []*NodeExec
 	}
