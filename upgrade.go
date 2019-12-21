@@ -1,6 +1,7 @@
 package sshw
 
 import (
+	"archive/zip"
 	"errors"
 	"fmt"
 	"github.com/dustin/go-humanize"
@@ -11,6 +12,11 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+)
+
+const (
+	ApplicationName  = "sshw"
+	windowsAppSuffix = ".exe"
 )
 
 type Repository interface {
@@ -97,7 +103,14 @@ func extractVersions(content []byte) []VersionMeta {
 // interface and we can pass this into io.TeeReader() which will report progress on each
 // write cycle.
 type WriteCounter struct {
-	Total uint64
+	Total            uint64
+	ProgressTemplate string
+}
+
+func NewWriteCounter() *WriteCounter {
+	return &WriteCounter{
+		ProgressTemplate: "Reading ",
+	}
 }
 
 func (wc *WriteCounter) Write(p []byte) (int, error) {
@@ -114,7 +127,7 @@ func (wc WriteCounter) PrintProgress() {
 
 	// Return again and print current status of download
 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
-	fmt.Printf("\rDownloading... %s complete", humanize.Bytes(wc.Total))
+	fmt.Printf("\r%s... %s complete", wc.ProgressTemplate, humanize.Bytes(wc.Total))
 }
 
 // Using version and filename to generate a remote url that is used to download file.
@@ -134,14 +147,14 @@ func (g *GithubRepository) Download(versionMeta *VersionMeta) (*os.File, error) 
 	}
 	defer tempFile.Close()
 	fmt.Println("Download Started")
-	counter := &WriteCounter{}
-	_, err = io.Copy(tempFile, io.TeeReader(response.Body, counter))
-	if err != nil {
+	counter := NewWriteCounter()
+	counter.ProgressTemplate = "Downloading"
+	if _, err = io.Copy(tempFile, io.TeeReader(response.Body, counter)); err != nil {
 		return nil, err
 	}
-	fmt.Print("\n")
+	fmt.Println()
 	fmt.Println("Download Finished")
-	fmt.Println("Tmp file ", tempFile.Name())
+	fmt.Println(tempFile.Name())
 
 	return tempFile, nil
 }
@@ -185,6 +198,7 @@ var supportedSystem = []RuntimeSystem{
 var (
 	systemUnsupported = errors.New("GOOS " + runtime.GOOS + ", GOARCH " + runtime.GOARCH + " is not supported")
 	remoteUnsupported = errors.New("GOOS " + runtime.GOOS + ", GOARCH " + runtime.GOARCH + " does not in remote releases")
+	binaryNotFound    = errors.New("does not found binary file when extracts remote zip")
 )
 
 func findSupportSystem() (*RuntimeSystem, error) {
@@ -195,4 +209,39 @@ func findSupportSystem() (*RuntimeSystem, error) {
 		}
 	}
 	return nil, systemUnsupported
+}
+
+func ExtractBinary(name string, needClose bool) (*os.File, error) {
+	fmt.Println("Extract binary file Started")
+	r, err := zip.OpenReader(name)
+	if err != nil {
+		return nil, err
+	}
+	for _, f := range r.File {
+		if !strings.HasSuffix(f.Name, ApplicationName) && !strings.HasSuffix(f.Name, windowsAppSuffix) {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		tempFile, err := ioutil.TempFile("", ApplicationName)
+		if err != nil && !os.IsExist(err) {
+			return nil, err
+		}
+		if needClose {
+			defer tempFile.Close()
+		}
+		counter := NewWriteCounter()
+		counter.ProgressTemplate = "Reading "
+		if _, err = io.Copy(tempFile, io.TeeReader(rc, counter)); err != nil {
+			return nil, err
+		}
+		fmt.Println()
+		fmt.Println("Extract finished")
+		fmt.Println(tempFile.Name())
+		return tempFile, nil
+	}
+	return nil, binaryNotFound
 }

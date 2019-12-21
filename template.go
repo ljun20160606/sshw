@@ -73,14 +73,14 @@ type CustomTemplate struct {
 
 func (c *CustomTemplate) Execute() string {
 	builder := strings.Builder{}
-	TEMPLATE:
+TEMPLATE:
 	for i := range c.Templates {
 		templateNode := c.Templates[i]
 		switch templateNode.Type {
 		case TypeStr:
 			builder.WriteString(templateNode.Value)
 		case TypeParam:
-			s := templateNode.Value[2:len(templateNode.Value)-1]
+			s := templateNode.Value[2 : len(templateNode.Value)-1]
 			if len(s) == 0 {
 				builder.WriteString(templateNode.Value)
 				continue

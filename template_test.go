@@ -89,7 +89,7 @@ func TestWalkInterface(t *testing.T) {
 		v      reflect.Value
 		walked bool
 		solver ValueSolver
-		test func(args)
+		test   func(args)
 	}
 	tests := []struct {
 		name    string
