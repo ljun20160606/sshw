@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
+source ./VERSION
 
 name="sshw"
-version=$1
 input="./cmd/sshw"
 
 go=go
 
-if [[ "$1" = "" ]];then
-    version=v1.4.1
+if [[ "$1" != "" ]];then
+    version=$1
 fi
 
 output="out/"
