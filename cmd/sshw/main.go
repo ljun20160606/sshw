@@ -33,7 +33,11 @@ var (
 		Username: "ljun20160606",
 		Name:     sshw.ApplicationName,
 	}
-	rootCmd   = &cobra.Command{}
+	rootCmd   = &cobra.Command{
+		Args: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	}
 	latestCmd = &cobra.Command{
 		Use:   "latest",
 		Short: "get latest version in remote",
