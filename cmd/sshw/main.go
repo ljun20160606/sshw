@@ -27,6 +27,7 @@ var (
 )
 
 var (
+	originalWD, _ = os.Getwd()
 	githubRepository = &sshw.GithubRepository{
 		Url:      "https://github.com",
 		Username: "ljun20160606",
@@ -104,6 +105,17 @@ var (
 				return
 			}
 			fmt.Println("Upgrade finished")
+
+			// exec: sshw -v to show new version
+			allFiles := append([]*os.File{os.Stdin, os.Stdout, os.Stderr})
+			_, err = os.StartProcess(path, []string{path, "-v"}, &os.ProcAttr{
+				Dir:   originalWD,
+				Files: allFiles,
+			})
+			if err != nil {
+				log.Error(err)
+				return
+			}
 		},
 	}
 )
