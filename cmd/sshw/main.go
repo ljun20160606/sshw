@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"runtime"
 	"strings"
 
 	"github.com/ljun20160606/sshw"
@@ -122,7 +121,19 @@ var (
 			}
 		},
 	}
+	versionCmd = &cobra.Command{
+		Use: "version",
+		Short: "show version",
+		Run: func(cmd *cobra.Command, args []string) {
+			showVersion()
+		},
+	}
 )
+
+func showVersion() {
+	fmt.Println("sshw - ssh client wrapper for automatic login")
+	fmt.Println("version:", Version)
+}
 
 func init() {
 	rootCmd.PersistentFlags().BoolP("ssh", "s", false, "use local ssh config '~/.ssh/config'")
@@ -131,9 +142,7 @@ func init() {
 
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
 		if v := rootCmd.PersistentFlags().Lookup("version").Value.String(); v == "true" {
-			fmt.Println("sshw - ssh client wrapper for automatic login")
-			fmt.Println("go version:", runtime.Version())
-			fmt.Println("version:", Version)
+			showVersion()
 			return
 		}
 		if useSsh := rootCmd.PersistentFlags().Lookup("ssh").Value.String(); useSsh == "true" {
@@ -178,8 +187,7 @@ func init() {
 			log.Error(err)
 		}
 	}
-	rootCmd.AddCommand(latestCmd)
-	rootCmd.AddCommand(upgradeCmd)
+	rootCmd.AddCommand(latestCmd, upgradeCmd, versionCmd)
 }
 
 func main() {
