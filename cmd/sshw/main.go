@@ -22,7 +22,7 @@ var (
 )
 
 var (
-	rootCmd   = &cobra.Command{
+	rootCmd = &cobra.Command{
 		Args: func(cmd *cobra.Command, args []string) error {
 			return nil
 		},
@@ -39,24 +39,24 @@ func init() {
 			showVersion()
 			return
 		}
+		var nodes []*sshw.Node
+		var err error
 		if useSsh := rootCmd.PersistentFlags().Lookup("ssh").Value.String(); useSsh == "true" {
-			if err := sshw.LoadSshConfig(); err != nil {
+			if nodes, err = sshw.LoadSshConfig(); err != nil {
 				log.Error("load ssh config", err)
 				return
 			}
 		} else {
 			filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
-			if err := sshw.LoadYamlConfig(filename); err != nil {
+			if nodes, err = sshw.LoadYamlConfig(filename); err != nil {
 				log.Error("load yaml config", err)
 				return
 			}
 		}
-		if err := sshw.PrepareConfig(); err != nil {
+		if err := sshw.PrepareConfig(nodes); err != nil {
 			log.Error("prepare config", err)
 			return
 		}
-
-		var nodes = sshw.GetConfig()
 
 		// login by alias
 		if len(args) >= 1 {
@@ -71,7 +71,7 @@ func init() {
 			}
 		}
 
-		node := choose(nil, sshw.GetConfig())
+		node := choose(nodes, nil, nodes)
 		if node == nil {
 			return
 		}
@@ -104,7 +104,7 @@ func findAlias(nodes []*sshw.Node, nodeAlias string) *sshw.Node {
 	return nil
 }
 
-func choose(parent, trees []*sshw.Node) *sshw.Node {
+func choose(root, parent, trees []*sshw.Node) *sshw.Node {
 	scopeAll := deepSearch(trees)
 	var scope []*interface{}
 	var searched bool
@@ -151,14 +151,14 @@ func choose(parent, trees []*sshw.Node) *sshw.Node {
 			first = &sshw.Node{Name: prev}
 			node.Children = append(node.Children[:0], append([]*sshw.Node{first}, node.Children...)...)
 		}
-		return choose(trees, node.Children)
+		return choose(root, trees, node.Children)
 	}
 
 	if node.Name == prev {
 		if parent == nil {
-			return choose(nil, sshw.GetConfig())
+			return choose(root, nil, root)
 		}
-		return choose(nil, parent)
+		return choose(root, nil, parent)
 	}
 
 	return node

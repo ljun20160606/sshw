@@ -90,15 +90,7 @@ func (n *Node) alias() string {
 	return n.Alias
 }
 
-var (
-	config []*Node
-)
-
-func GetConfig() []*Node {
-	return config
-}
-
-func PrepareConfig() error {
+func PrepareConfig(config []*Node) error {
 	return WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value) {
 		if t.Kind() != reflect.String || !v.CanSet() {
 			return
@@ -108,7 +100,7 @@ func PrepareConfig() error {
 	})
 }
 
-func LoadYamlConfig(filename string) error {
+func LoadYamlConfig(filename string) ([]*Node, error) {
 	var b []byte
 	var err error
 	if filename != "" {
@@ -118,24 +110,21 @@ func LoadYamlConfig(filename string) error {
 	}
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var c []*Node
 	err = yaml.Unmarshal(b, &c)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	config = c
-
-	return nil
+	return c, nil
 }
 
-func LoadSshConfig() error {
+func LoadSshConfig() ([]*Node, error) {
 	u, err := user.Current()
 	if err != nil {
-		l.Error(err)
-		return nil
+		return nil, err
 	}
 	f, _ := os.Open(path.Join(u.HomeDir, ".ssh/config"))
 	cfg, _ := ssh_config.Decode(f)
@@ -144,7 +133,7 @@ func LoadSshConfig() error {
 		alias := fmt.Sprintf("%s", host.Patterns[0])
 		hostName, err := cfg.Get(alias, "HostName")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if hostName != "" {
 			port, _ := cfg.Get(alias, "Port")
@@ -159,8 +148,7 @@ func LoadSshConfig() error {
 			nc = append(nc, c)
 		}
 	}
-	config = nc
-	return nil
+	return nc, nil
 }
 
 func LoadConfigBytes(names ...string) ([]byte, error) {
