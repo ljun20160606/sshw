@@ -5,7 +5,6 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/ljun20160606/sshw"
 	"github.com/spf13/cobra"
-	"io"
 	"os"
 	"os/exec"
 )
@@ -79,18 +78,8 @@ var upgradeCmd = &cobra.Command{
 		}
 		fmt.Println("Exec path ", path)
 		fmt.Println("Upgrade started")
-		execFile, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		if err != nil && !os.IsExist(err) {
-			log.Error(err)
-			return
-		}
-		defer execFile.Close()
-		// size 0
-		execFile.Truncate(0)
-		// offset 0
-		execFile.Seek(0, 0)
 		binaryFile.Seek(0, 0)
-		if _, err = io.Copy(execFile, binaryFile); err != nil {
+		if err := backupAndReplaceFile(path, binaryFile); err != nil {
 			log.Error(err)
 			return
 		}

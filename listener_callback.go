@@ -89,7 +89,7 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 func naiveRealpath(p string) string {
 	if p[0] == '~' {
 		u, _ := user.Current()
-		return path.Join(u.HomeDir, string(p[2:]))
+		return path.Join(u.HomeDir, p[2:])
 	}
 	return p
 }

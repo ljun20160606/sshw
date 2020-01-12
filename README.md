@@ -179,3 +179,11 @@ Support escape, read as literal `${foo}` if use `\${foo}`.
   execs-pre:
   - {cmd: 'echo ${content} localhost'}
 ```
+
+# merge
+
+Merge config A to B.Only compare name and do override, otherwise it is complex.Also can use `-f` to specify persistent config.
+
+```shell
+sshw merge ./other.yaml
+```

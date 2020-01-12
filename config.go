@@ -31,6 +31,34 @@ type Node struct {
 	CallbackShells []*NodeCallbackShell `yaml:"callback-shells"`
 	Children       []*Node              `yaml:"children"`
 	Jump           []*Node              `yaml:"jump"`
+	MergeIgnore    bool                 `yaml:"merge-ignore"`
+}
+
+// merge srcNode to dstNode
+// only compare name and override, otherwise it is complex.
+func MergeNodes(dstPtr *[]*Node, src []*Node) {
+	dst := *dstPtr
+	var canMerged []*Node
+	for srcIndex := range src {
+		srcNode := src[srcIndex]
+		if srcNode.MergeIgnore {
+			continue
+		}
+		nodeIndex := -1
+		for dstIndex := range dst {
+			dstNode := dst[dstIndex]
+			if srcNode.Name == dstNode.Name {
+				nodeIndex = dstIndex
+				break
+			}
+		}
+		if nodeIndex < 0 {
+			canMerged = append(canMerged, srcNode)
+			continue
+		}
+		dst[nodeIndex] = srcNode
+	}
+	*dstPtr = append(dst, canMerged...)
 }
 
 type NodeExec struct {
@@ -100,25 +128,27 @@ func PrepareConfig(config []*Node) error {
 	})
 }
 
-func LoadYamlConfig(filename string) ([]*Node, error) {
+func LoadYamlConfig(filename string) (string, []*Node, error) {
 	var b []byte
 	var err error
+	var pathname string
 	if filename != "" {
-		b, err = ioutil.ReadFile(naiveRealpath(filename))
+		pathname = naiveRealpath(filename)
+		b, err = ioutil.ReadFile(pathname)
 	} else {
-		b, err = LoadConfigBytes(".sshw", ".sshw.yml", ".sshw.yaml")
+		pathname, b, err = LoadConfigBytes(".sshw", ".sshw.yml", ".sshw.yaml")
 	}
 
 	if err != nil {
-		return nil, err
+		return pathname, nil, err
 	}
 	var c []*Node
 	err = yaml.Unmarshal(b, &c)
 	if err != nil {
-		return nil, err
+		return pathname, nil, err
 	}
 
-	return c, nil
+	return pathname, c, nil
 }
 
 func LoadSshConfig() ([]*Node, error) {
@@ -151,24 +181,26 @@ func LoadSshConfig() ([]*Node, error) {
 	return nc, nil
 }
 
-func LoadConfigBytes(names ...string) ([]byte, error) {
+func LoadConfigBytes(names ...string) (string, []byte, error) {
 	u, err := user.Current()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	// homedir
 	for i := range names {
-		sshw, err := ioutil.ReadFile(path.Join(u.HomeDir, names[i]))
+		pathname := path.Join(u.HomeDir, names[i])
+		configBytes, err := ioutil.ReadFile(pathname)
 		if err == nil {
-			return sshw, nil
+			return pathname, configBytes, nil
 		}
 	}
 	// relative
 	for i := range names {
-		sshw, err := ioutil.ReadFile(names[i])
+		pathname := names[i]
+		configBytes, err := ioutil.ReadFile(pathname)
 		if err == nil {
-			return sshw, nil
+			return pathname, configBytes, nil
 		}
 	}
-	return nil, err
+	return "", nil, err
 }

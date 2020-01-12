@@ -30,25 +30,25 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().BoolP("ssh", "s", false, "use local ssh config '~/.ssh/config'")
+	rootCmd.Flags().BoolP("ssh", "s", false, "use local ssh config '~/.ssh/config'")
+	rootCmd.Flags().BoolP("version", "v", false, "show version")
 	rootCmd.PersistentFlags().StringP("filename", "f", "", ".sshw config filename")
-	rootCmd.PersistentFlags().BoolP("version", "v", false, "show version")
 
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
-		if v := rootCmd.PersistentFlags().Lookup("version").Value.String(); v == "true" {
+		if v := rootCmd.Flags().Lookup("version").Value.String(); v == "true" {
 			showVersion()
 			return
 		}
 		var nodes []*sshw.Node
 		var err error
-		if useSsh := rootCmd.PersistentFlags().Lookup("ssh").Value.String(); useSsh == "true" {
+		if useSsh := rootCmd.Flags().Lookup("ssh").Value.String(); useSsh == "true" {
 			if nodes, err = sshw.LoadSshConfig(); err != nil {
 				log.Error("load ssh config", err)
 				return
 			}
 		} else {
 			filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
-			if nodes, err = sshw.LoadYamlConfig(filename); err != nil {
+			if _, nodes, err = sshw.LoadYamlConfig(filename); err != nil {
 				log.Error("load yaml config", err)
 				return
 			}
