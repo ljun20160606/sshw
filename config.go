@@ -19,19 +19,19 @@ import (
 
 type Node struct {
 	Name           string               `yaml:"name"`
-	Alias          string               `yaml:"alias"`
-	ExecsPre       []*NodeExec          `yaml:"execs-pre"`
-	ExecsStop      []*NodeExec          `yaml:"execs-stop"`
-	Host           string               `yaml:"host"`
-	User           string               `yaml:"user"`
-	Port           int                  `yaml:"port"`
-	KeyPath        string               `yaml:"keypath"`
-	Passphrase     string               `yaml:"passphrase"`
-	Password       string               `yaml:"password"`
-	CallbackShells []*NodeCallbackShell `yaml:"callback-shells"`
-	Children       []*Node              `yaml:"children"`
-	Jump           []*Node              `yaml:"jump"`
-	MergeIgnore    bool                 `yaml:"merge-ignore"`
+	Alias          string               `yaml:"alias,omitempty"`
+	ExecsPre       []*NodeExec          `yaml:"execs-pre,omitempty"`
+	ExecsStop      []*NodeExec          `yaml:"execs-stop,omitempty"`
+	Host           string               `yaml:"host,omitempty"`
+	User           string               `yaml:"user,omitempty"`
+	Port           int                  `yaml:"port,omitempty"`
+	KeyPath        string               `yaml:"keypath,omitempty"`
+	Passphrase     string               `yaml:"passphrase,omitempty"`
+	Password       string               `yaml:"password,omitempty"`
+	CallbackShells []*NodeCallbackShell `yaml:"callback-shells,omitempty"`
+	Children       []*Node              `yaml:"children,omitempty"`
+	Jump           []*Node              `yaml:"jump,omitempty"`
+	MergeIgnore    bool                 `yaml:"merge-ignore,omitempty"`
 }
 
 // merge srcNode to dstNode
@@ -67,10 +67,10 @@ type NodeExec struct {
 
 type NodeCallbackShell struct {
 	Cmd          string        `yaml:"cmd"`
-	CpShell      NodeCp        `yaml:"cp"`
-	Delay        time.Duration `yaml:"delay"`
-	ErrorPattern string        `yaml:"error-pattern"`
-	Wait         time.Duration `yaml:"wait"`
+	CpShell      NodeCp        `yaml:"cp,omitempty"`
+	Delay        time.Duration `yaml:"delay,omitempty"`
+	ErrorPattern string        `yaml:"error-pattern,omitempty"`
+	Wait         time.Duration `yaml:"wait,omitempty"`
 }
 
 type NodeCp struct {

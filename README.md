@@ -187,3 +187,10 @@ Merge config A to B.Only compare name and do override, otherwise it is complex.A
 ```shell
 sshw merge ./other.yaml
 ```
+
+If doesn't want a name to be merge, use `merge-ignore: true`
+
+```yaml
+- name: foo
+  merge-ignore: true
+```
