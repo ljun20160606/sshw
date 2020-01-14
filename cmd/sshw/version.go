@@ -107,6 +107,7 @@ var latestCmd = &cobra.Command{
 			log.Error(err)
 			return
 		}
+		showVersion()
 		fmt.Println("latest version:", versionMeta.Version)
 	},
 }
