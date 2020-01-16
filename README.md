@@ -1,6 +1,6 @@
 # sshw
 
-[![Build Status](https://travis-ci.org/ljun20160606/sshw.svg?branch=master)](https://travis-ci.org/yinheli/sshw)
+[![Build Status](https://travis-ci.org/ljun20160606/sshw.svg?branch=master)](https://travis-ci.org/ljun20160606/sshw)
 
 ssh client wrapper for automatic login.
 
