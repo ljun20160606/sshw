@@ -78,7 +78,7 @@ func buildTarget(OS, arch string, envs map[string]string) error {
 
 	args := make([]string, 0, 10)
 	args = append(args, "build", "-o", target)
-	args = append(args, "-ldflags", flags(), "cmd/sshw/main.go")
+	args = append(args, "-ldflags", flags(), "./cmd/sshw")
 
 	fmt.Println("build", target)
 	env := make(map[string]string)
@@ -104,7 +104,7 @@ func buildTarget(OS, arch string, envs map[string]string) error {
 func flags() string {
 	hash := hash()
 	tag := tag()
-	return fmt.Sprintf(`-s -w -X "main.Build=%s-%s" -extldflags "-static"`, tag, hash)
+	return fmt.Sprintf(`-s -w -X "main.Version=%s-%s" -extldflags "-static"`, tag, hash)
 }
 
 // tag returns the git tag for the current branch or "" if none.
