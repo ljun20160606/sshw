@@ -101,12 +101,13 @@ func TestWalkInterface(t *testing.T) {
 			args: args{
 				v:      reflect.ValueOf([]*Node{{Name: "foo"}}),
 				walked: false,
-				solver: func(k string, t reflect.Type, v reflect.Value) {
+				solver: func(k string, t reflect.Type, v reflect.Value) (stop bool) {
 					if t.Kind() == reflect.String && v.CanSet() {
 						if k == "Name" {
 							v.Set(reflect.ValueOf("bar"))
 						}
 					}
+					return
 				},
 				test: func(a args) {
 					ast.NotPanics(func() {

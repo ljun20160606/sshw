@@ -9,7 +9,9 @@ import (
 	"text/scanner"
 )
 
-type ValueSolver func(k string, t reflect.Type, v reflect.Value)
+type ValueSolver func(k string, t reflect.Type, v reflect.Value) (stop bool)
+
+const WalkIndexFlag = "$index"
 
 func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 	t := v.Type()
@@ -28,7 +30,9 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 		for num := 0; num < realV.NumField(); num++ {
 			field := realT.Field(num)
 			value := realV.Field(num)
-			solver(field.Name, value.Type(), value)
+			if stop := solver(field.Name, value.Type(), value); stop {
+				return nil
+			}
 			if err := WalkInterface(value, true, solver); err != nil {
 				return err
 			}
@@ -36,7 +40,9 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 	case reflect.Slice, reflect.Array:
 		for num := 0; num < realV.Len(); num++ {
 			index := realV.Index(num)
-			solver("$index", index.Type(), index)
+			if stop := solver(WalkIndexFlag, index.Type(), index); stop {
+				return nil
+			}
 			if err := WalkInterface(index, true, solver); err != nil {
 				return err
 			}
@@ -49,14 +55,18 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 			if key.Kind() != reflect.String {
 				return errors.New("only support key of string in map")
 			}
-			solver(key.Interface().(string), value.Type(), value)
+			if stop := solver(key.Interface().(string), value.Type(), value); stop {
+				return nil
+			}
 			if err := WalkInterface(value, true, solver); err != nil {
 				return err
 			}
 		}
 	default:
 		if !walked {
-			solver("$other", realT, realV)
+			if stop := solver("$other", realT, realV); stop {
+				return nil
+			}
 		}
 	}
 	return nil
