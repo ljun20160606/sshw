@@ -73,71 +73,8 @@ func MergeNodes(dstPtr *[]*Node, src []*Node) {
 //    - name: bar
 //    - name: zoo
 func IsBookmark(n *Node) bool {
-	notEmptyNames, _ := FieldsEmpty(n, []string{"Name", "Children", "MergeIgnore"})
+	notEmptyNames, _ := FieldsNotEmpty(n, []string{"Name", "Children", "MergeIgnore"})
 	return len(notEmptyNames) == 0
-}
-
-// fields of v is empty
-// if key in ignoreKeys, skip validation
-func FieldsEmpty(v interface{}, ignoreKeys []string) ([]string, error) {
-	var notEmptyNames []string
-	if err := WalkInterface(reflect.ValueOf(v), false, func(k string, t reflect.Type, v reflect.Value) (stop bool) {
-		if k == WalkIndexFlag {
-			return
-		}
-		for i := range ignoreKeys {
-			if ignoreKeys[i] == k {
-				return
-			}
-		}
-		if !FieldEmpty(t, v) {
-			notEmptyNames = append(notEmptyNames, k)
-			return
-		}
-		return
-	}); err != nil {
-		return nil, err
-	}
-	return notEmptyNames, nil
-}
-
-func FieldEmpty(t reflect.Type, v reflect.Value) bool {
-	switch t.Kind() {
-	case reflect.String:
-		if v.String() == "" {
-			return true
-		}
-	case reflect.Array, reflect.Slice, reflect.Map:
-		if v.Len() == 0 {
-			return true
-		}
-	case reflect.Ptr:
-		if v.IsNil() {
-			return true
-		}
-		elem := v.Elem()
-		return FieldEmpty(v.Elem().Type(), elem)
-	case reflect.Int,
-		reflect.Int8,
-		reflect.Int16,
-		reflect.Int32,
-		reflect.Int64,
-		reflect.Uint,
-		reflect.Uint8,
-		reflect.Uint16,
-		reflect.Uint32,
-		reflect.Uint64:
-		if v.Int() == 0 {
-			return true
-		}
-	case reflect.Bool:
-		if !v.Bool() {
-			return true
-		}
-	default:
-		// 其他类型默认算不为空
-	}
-	return false
 }
 
 type NodeExec struct {

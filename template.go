@@ -2,75 +2,10 @@ package sshw
 
 import (
 	"bytes"
-	"errors"
 	"os"
-	"reflect"
 	"strings"
 	"text/scanner"
 )
-
-type ValueSolver func(k string, t reflect.Type, v reflect.Value) (stop bool)
-
-const WalkIndexFlag = "$index"
-
-func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
-	t := v.Type()
-	var realT reflect.Type
-	var realV reflect.Value
-	if t.Kind() == reflect.Ptr {
-		realT = t.Elem()
-		realV = v.Elem()
-	} else {
-		realT = t
-		realV = v
-	}
-
-	switch kind := realT.Kind(); kind {
-	case reflect.Struct:
-		for num := 0; num < realV.NumField(); num++ {
-			field := realT.Field(num)
-			value := realV.Field(num)
-			if stop := solver(field.Name, value.Type(), value); stop {
-				return nil
-			}
-			if err := WalkInterface(value, true, solver); err != nil {
-				return err
-			}
-		}
-	case reflect.Slice, reflect.Array:
-		for num := 0; num < realV.Len(); num++ {
-			index := realV.Index(num)
-			if stop := solver(WalkIndexFlag, index.Type(), index); stop {
-				return nil
-			}
-			if err := WalkInterface(index, true, solver); err != nil {
-				return err
-			}
-		}
-	case reflect.Map:
-		iter := realV.MapRange()
-		for iter.Next() {
-			key := iter.Key()
-			value := iter.Value()
-			if key.Kind() != reflect.String {
-				return errors.New("only support key of string in map")
-			}
-			if stop := solver(key.Interface().(string), value.Type(), value); stop {
-				return nil
-			}
-			if err := WalkInterface(value, true, solver); err != nil {
-				return err
-			}
-		}
-	default:
-		if !walked {
-			if stop := solver("$other", realT, realV); stop {
-				return nil
-			}
-		}
-	}
-	return nil
-}
 
 const (
 	TypeStr   = "str"

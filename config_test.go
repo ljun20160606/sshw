@@ -3,7 +3,6 @@ package sshw
 import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
-	"reflect"
 	"testing"
 )
 
@@ -74,7 +73,7 @@ func TestMergeNodes(t *testing.T) {
 			args: args{
 				dstPtr: &([]*Node{
 					{
-						Name:  "foo",
+						Name: "foo",
 						Children: []*Node{
 							{
 								Name: "bar",
@@ -84,7 +83,7 @@ func TestMergeNodes(t *testing.T) {
 				}),
 				src: []*Node{
 					{
-						Name:  "foo",
+						Name: "foo",
 						Children: []*Node{
 							{
 								Name: "car",
@@ -94,7 +93,7 @@ func TestMergeNodes(t *testing.T) {
 				},
 				expect: []*Node{
 					{
-						Name:  "foo",
+						Name: "foo",
 						Children: []*Node{
 							{
 								Name: "bar",
@@ -147,60 +146,6 @@ func TestIsBookmark(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsBookmark(tt.args.n); got != tt.want {
 				t.Errorf("IsBookmark() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFieldsEmpty(t *testing.T) {
-	type args struct {
-		v          interface{}
-		ignoreKeys []string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    []string
-		wantErr bool
-	}{
-		{
-			name: "one",
-			args: args{
-				v: struct {
-					Number int8
-				}{
-					Number: 1,
-				},
-				ignoreKeys: nil,
-			},
-			want:    []string{"Number"},
-			wantErr: false,
-		},
-		{
-			name: "two",
-			args: args{
-				v: struct {
-					Name   string
-					Number int
-				}{
-					Name:   "foo",
-					Number: 1,
-				},
-				ignoreKeys: []string{"Name", "Number"},
-			},
-			want:    nil,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := FieldsEmpty(tt.args.v, tt.args.ignoreKeys)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("FieldsEmpty() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FieldsEmpty() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
