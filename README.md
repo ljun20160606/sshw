@@ -194,3 +194,34 @@ If doesn't want a name to be merge, use `merge-ignore: true`
 - name: foo
   merge-ignore: true
 ```
+
+If config is a bookmark that have name and children only. It will be merged with children.
+
+config A
+
+```yaml
+- name: foo
+  children:
+    - name: bar
+      ...
+```
+
+config B
+
+```yaml
+- name: foo
+  children:
+    - name: car
+      ...
+```
+
+config merged
+
+```yaml
+- name: foo
+  children:
+    - name: bar
+      ...
+    - name: car
+      ...
+```
