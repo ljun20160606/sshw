@@ -130,6 +130,13 @@ func TestIsBookmark(t *testing.T) {
 			name: "one",
 			args: args{n: &Node{
 				Name: "Foo",
+				Children: []*Node{
+					{
+						Name:  "foo",
+						Alias: "foo",
+						User:  "user",
+					},
+				},
 			}},
 			want: true,
 		},
