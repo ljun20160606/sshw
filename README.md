@@ -182,20 +182,20 @@ Support escape, read as literal `${foo}` if use `\${foo}`.
 
 # merge
 
-Merge config A to B.Only compare name and do override, otherwise it is complex.Also can use `-f` to specify persistent config.
+Merge config A to B. Only compare name and do override, otherwise it is complex. Also can use `-f` to specify persistent config.
 
 ```shell
 sshw merge ./other.yaml
 ```
 
-If doesn't want a name to be merge, use `merge-ignore: true`
+If doesn't want a name to be merged, use `merge-ignore: true`
 
 ```yaml
 - name: foo
   merge-ignore: true
 ```
 
-If config is a bookmark that have name and children only. It will be merged with children.
+If config is a bookmark that has name and children only. It will be merged with children.
 
 config A
 
