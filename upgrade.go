@@ -198,7 +198,7 @@ var supportedSystem = []RuntimeSystem{
 var (
 	systemUnsupported = errors.New("GOOS " + runtime.GOOS + ", GOARCH " + runtime.GOARCH + " is not supported")
 	remoteUnsupported = errors.New("GOOS " + runtime.GOOS + ", GOARCH " + runtime.GOARCH + " does not in remote releases")
-	binaryNotFound    = errors.New("does not found binary file when extracts remote zip")
+	binaryNotFound    = errors.New("binary file is not found when extracts remote zip")
 )
 
 func findSupportSystem() (*RuntimeSystem, error) {
