@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -36,7 +38,9 @@ var (
 )
 
 type Client interface {
-	Login() error
+	Connect() error
+	OpenTerminal() error
+	Close() error
 }
 
 func NewClient(node *Node) Client {
@@ -47,6 +51,7 @@ type defaultClient struct {
 	clientConfig *ssh.ClientConfig
 	node         *Node
 	agent        agent.Agent
+	client       *ssh.Client
 }
 
 func newClient(node *Node) *defaultClient {
@@ -93,7 +98,7 @@ func (c *defaultClient) dial() (*ssh.Client, error) {
 		if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
 			fmt.Printf("%s@%s's password:", c.clientConfig.User, c.node.Host)
 			var b []byte
-			b, err = terminal.ReadPassword(int(syscall.Stdin))
+			b, err = terminal.ReadPassword(syscall.Stdin)
 			if err == nil {
 				p := string(b)
 				if p != "" {
@@ -122,7 +127,7 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 	return client, nil
 }
 
-func (c *defaultClient) Login() error {
+func (c *defaultClient) Connect() error {
 	if hasVar, err := execs(c.node.ExecsPre); err != nil {
 		return err
 	} else if hasVar {
@@ -131,27 +136,52 @@ func (c *defaultClient) Login() error {
 		}
 	}
 	if len(c.node.ExecsPre) != 0 && c.node.Host == "" {
-		return nil
+		return errors.New("can not run")
 	}
 
 	client, err := c.Dial()
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+
+	c.client = client
+
 	l.Infof("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion()))
 
-	if err = lifecycleComposite.PostSSHDial(c.node, client); err != nil {
+	return nil
+}
+
+func (c *defaultClient) OpenTerminal() error {
+	if c.client == nil {
+		return errors.New("must start client")
+	}
+
+	if err := lifecycleComposite.PostSSHDial(c.node, c.client); err != nil {
 		return err
 	}
 
-	session, err := client.NewSession()
+	for i := range c.node.Scps {
+		nodeCp := c.node.Scps[i]
+		if err := c.Scp(nodeCp); err != nil {
+			return err
+		}
+	}
+
+	session, err := c.client.NewSession()
 	if err != nil {
 		return err
 	}
-	defer session.Close()
+	defer func() {
+		_ = session.Close()
+	}()
 
 	if err := lifecycleComposite.PostNewSession(c.node, session); err != nil {
+		return err
+	}
+
+	// stdin
+	stdinPipe, err := session.StdinPipe()
+	if err != nil {
 		return err
 	}
 
@@ -167,12 +197,6 @@ func (c *defaultClient) Login() error {
 		return lifecycleComposite.OnStderr(c.node, line)
 	}); err != nil {
 		return errors.Wrap(err, "stderr")
-	}
-
-	// stdin
-	stdinPipe, err := session.StdinPipe()
-	if err != nil {
-		return err
 	}
 
 	// shell
@@ -194,8 +218,8 @@ func (c *defaultClient) Login() error {
 	// send keepalive
 	go func() {
 		for {
-			time.Sleep(time.Second * 10)
-			_, _, _ = client.SendRequest("keepalive@openssh.com", false, nil)
+			time.Sleep(time.Second * 5)
+			_, _, _ = c.client.SendRequest("keepalive@openssh.com", false, nil)
 		}
 	}()
 
@@ -207,6 +231,131 @@ func (c *defaultClient) Login() error {
 		return err
 	}
 	return nil
+}
+
+// like shell scp
+// cp local file into server
+func (c *defaultClient) Scp(cp *NodeCp) error {
+	session, err := c.client.NewSession()
+	if err != nil {
+		return errors.New("Failed to create session: " + err.Error())
+	}
+	realfilePath := naiveRealpath(cp.Src)
+	f, err := os.Open(realfilePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	info, _ := f.Stat()
+	perm := fmt.Sprintf("%04o", info.Mode().Perm())
+
+	remotePath := cp.Tgt
+	filename := path.Base(cp.Src)
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+	errCh := make(chan error, 2)
+
+	go func() {
+		defer wg.Done()
+		w, err := session.StdinPipe()
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		defer func() {
+			_ = w.Close()
+		}()
+
+		stdout, err := session.StdoutPipe()
+
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		_, err = fmt.Fprintln(w, "C"+perm, info.Size(), filename)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		if err = checkResponse(stdout); err != nil {
+			errCh <- err
+			return
+		}
+
+		_, err = io.Copy(w, f)
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		_, err = fmt.Fprint(w, "\x00")
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		if err = checkResponse(stdout); err != nil {
+			errCh <- err
+			return
+		}
+	}()
+
+	go func() {
+		fmt.Println("scp " + cp.Src + " remote:" + cp.Tgt)
+		defer wg.Done()
+		if err := session.Run(fmt.Sprintf("%s -qt %s", "scp", remotePath)); err != nil {
+			errCh <- err
+			return
+		}
+	}()
+
+	var timeout int64
+	if cp.Timeout == 0 {
+		timeout = 60
+	}
+
+	if waitTimeout(&wg, time.Duration(timeout)*time.Second) {
+		return errors.New("timeout when upload files")
+	}
+
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// waitTimeout waits for the waitgroup for the specified max timeout.
+// Returns true if waiting timed out.
+func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	c := make(chan struct{})
+	go func() {
+		defer close(c)
+		wg.Wait()
+	}()
+	select {
+	case <-c:
+		return false // completed normally
+	case <-time.After(timeout):
+		return true // timed out
+	}
+}
+
+func (c *defaultClient) Close() error {
+	if c.client == nil {
+		return nil
+	}
+	return c.client.Close()
 }
 
 func shell() string {
@@ -248,4 +397,20 @@ func execs(execs []*NodeExec) (bool, error) {
 		}
 	}
 	return hasVar, nil
+}
+
+// Checks the response it reads from the remote, and will return a single error in case
+// of failure
+func checkResponse(r io.Reader) error {
+	response, err := ParseResponse(r)
+	if err != nil {
+		return err
+	}
+
+	if response.IsFailure() {
+		return errors.New(response.GetMessage())
+	}
+
+	return nil
+
 }

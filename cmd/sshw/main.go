@@ -63,10 +63,7 @@ func init() {
 			var nodeAlias = args[0]
 			var node = findAlias(nodes, nodeAlias)
 			if node != nil {
-				client := sshw.NewClient(node)
-				if err := client.Login(); err != nil {
-					log.Error(err)
-				}
+				ExecNode(node)
 				return
 			}
 		}
@@ -76,10 +73,22 @@ func init() {
 			return
 		}
 
-		client := sshw.NewClient(node)
-		if err := client.Login(); err != nil {
-			log.Error(err)
-		}
+		ExecNode(node)
+	}
+}
+
+func ExecNode(node *sshw.Node) {
+	client := sshw.NewClient(node)
+	if err := client.Connect(); err != nil {
+		log.Error(err)
+		return
+	}
+	defer func() {
+		_ = client.Close()
+	}()
+	if err := client.OpenTerminal(); err != nil {
+		log.Error(err)
+		return
 	}
 }
 

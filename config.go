@@ -29,6 +29,7 @@ type Node struct {
 	Passphrase           string                `yaml:"passphrase,omitempty"`
 	Password             string                `yaml:"password,omitempty"`
 	CallbackShells       []*NodeCallbackShell  `yaml:"callback-shells,omitempty"`
+	Scps                 []*NodeCp             `yaml:"scps"`
 	Children             []*Node               `yaml:"children,omitempty"`
 	Jump                 []*Node               `yaml:"jump,omitempty"`
 	MergeIgnore          bool                  `yaml:"merge-ignore,omitempty"`
@@ -101,8 +102,10 @@ type NodeCallbackShell struct {
 }
 
 type NodeCp struct {
-	Src string `yaml:"src"`
-	Tgt string `yaml:"tgt"`
+	Src     string `yaml:"src"`
+	Tgt     string `yaml:"tgt"`
+	// seconds
+	Timeout int64
 }
 
 func (n *Node) String() string {

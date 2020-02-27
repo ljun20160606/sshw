@@ -143,6 +143,19 @@ Callback support cp file to remote from local, it will convert src file to hex, 
   - { cp: { src: '~/test.txt', tgt: '/tmp/test.txt' } }
 ```
 
+Or by protocol ssh.
+
+```yaml
+- name: dev
+  user: appuser
+  host: 192.168.8.35
+  scps:
+    - src: ~/test
+      tgt: ./
+      # default 60s      
+      timeout: 60
+```
+
 # execs
 
 Run command before ssh dial or after cancel ssh dial. `execs-pre` is before dial. `execs-stop` is after cancel ssh,
