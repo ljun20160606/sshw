@@ -1,6 +1,7 @@
 package sshw
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/agent"
@@ -122,8 +123,12 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 }
 
 func (c *defaultClient) Login() error {
-	if err := execs(c.node.ExecsPre); err != nil {
+	if hasVar, err := execs(c.node.ExecsPre); err != nil {
 		return err
+	} else if hasVar {
+		if err = PrepareConfig(c.node); err != nil {
+			return err
+		}
 	}
 	if len(c.node.ExecsPre) != 0 && c.node.Host == "" {
 		return nil
@@ -198,7 +203,7 @@ func (c *defaultClient) Login() error {
 	if err := lifecycleComposite.PostSessionWait(c.node); err != nil {
 		return err
 	}
-	if err := execs(c.node.ExecsStop); err != nil {
+	if _, err := execs(c.node.ExecsStop); err != nil {
 		return err
 	}
 	return nil
@@ -212,19 +217,35 @@ func shell() string {
 	return currentShell
 }
 
-func execs(execs []*NodeExec) error {
+// execute command
+// set output into env, key is var
+// if has var return true
+func execs(execs []*NodeExec) (bool, error) {
+	var hasVar bool
 	currentShell := shell()
 	for i := range execs {
 		nodeExec := execs[i]
 		cmdStr := nodeExec.Cmd
 		command := exec.Command(currentShell, "-c", cmdStr)
-		command.Stdout = os.Stdout
+		var buffer *bytes.Buffer
+		if nodeExec.Var == "" {
+			command.Stdout = os.Stdout
+		} else {
+			hasVar = true
+			buffer = bytes.NewBuffer(nil)
+			command.Stdout = io.MultiWriter(os.Stdout, buffer)
+		}
 		command.Stderr = os.Stderr
 		command.Stdin = os.Stdin
 		_, _ = io.WriteString(os.Stdout, cmdStr+"\n")
 		if err := command.Run(); err != nil {
-			return err
+			return hasVar, err
+		}
+		if buffer != nil {
+			if err := os.Setenv(nodeExec.Var, buffer.String()); err != nil {
+				return hasVar, err
+			}
 		}
 	}
-	return nil
+	return hasVar, nil
 }

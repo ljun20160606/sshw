@@ -89,6 +89,7 @@ func IsBookmark(n *Node) bool {
 
 type NodeExec struct {
 	Cmd string `yaml:"cmd"`
+	Var string `yaml:"var"`
 }
 
 type NodeCallbackShell struct {
@@ -144,7 +145,8 @@ func (n *Node) alias() string {
 	return n.Alias
 }
 
-func PrepareConfig(config []*Node) error {
+// render template into nodes
+func PrepareConfig(config interface{}) error {
 	return WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value) (stop bool) {
 		if t.Kind() != reflect.String || !v.CanSet() {
 			return

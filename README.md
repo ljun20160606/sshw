@@ -14,7 +14,7 @@ use `go get`
 go get -u github.com/ljun2016060/sshw/cmd/sshw
 ```
 
-or download binary from [releases](//github.com/ljun20160606/sshw/releases).
+or download binary from [releases](http://github.com/ljun20160606/sshw/releases).
 
 ## upgrade
 
@@ -146,7 +146,9 @@ Callback support cp file to remote from local, it will convert src file to hex, 
 # execs
 
 Run command before ssh dial or after cancel ssh dial. `execs-pre` is before dial. `execs-stop` is after cancel ssh,
-but it's important to note that `execs-stop` only run in host does exist.
+but it's important to note that `execs-stop` only run when host does exist.
+
+`execs-pre` also can set output as a variable into env.
 
 If only needs to run command.
 
@@ -154,6 +156,8 @@ If only needs to run command.
 - name: command-checklist
   execs-pre:
   - cmd: "echo command-checklist"
+    var: echo_test
+  - cmd: echo ${echo_test} 
   - cmd: "something else" 
 ```
 
