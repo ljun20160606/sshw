@@ -225,3 +225,14 @@ config merged
     - name: car
       ...
 ```
+
+# keyboardInteractive
+
+Answer according to the matching questions. if question contains what we set question, it will be match. if set empty question, it means match all.
+
+- name: server with jump
+  user: appuser
+  host: 192.168.8.35
+  keyboard-interactions:
+  - question: your name
+    answer: foo 

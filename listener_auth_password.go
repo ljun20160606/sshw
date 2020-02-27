@@ -3,10 +3,14 @@ package sshw
 import (
 	"bufio"
 	"fmt"
+	"github.com/dgryski/dgoogauth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
 	"os"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 )
 
 func init() {
@@ -19,6 +23,8 @@ func init() {
 type LifecyclePassword struct {
 }
 
+// if set password, auto auth password
+// if set KeyboardInteractions, match question and then auto auth interaction
 func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
 	password := node.password()
 
@@ -28,8 +34,22 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 
 	clientConfig.Auth = append(clientConfig.Auth, ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) ([]string, error) {
 		answers := make([]string, 0, len(questions))
+	QUESTIONS:
 		for i, q := range questions {
 			fmt.Print(q)
+			for i := range node.KeyboardInteractions {
+				keyboardInteractive := node.KeyboardInteractions[i]
+				if strings.Contains(q, keyboardInteractive.Question) {
+					answer := keyboardInteractive.Answer
+					if keyboardInteractive.GoogleAuth {
+						code := dgoogauth.ComputeCode(keyboardInteractive.Answer, time.Now().Unix()/30)
+						fmt.Print(code)
+						answer = strconv.Itoa(code)
+					}
+					answers = append(answers, answer)
+					continue QUESTIONS
+				}
+			}
 			if echos[i] {
 				scan := bufio.NewScanner(os.Stdin)
 				if scan.Scan() {

@@ -18,20 +18,30 @@ import (
 )
 
 type Node struct {
-	Name           string               `yaml:"name"`
-	Alias          string               `yaml:"alias,omitempty"`
-	ExecsPre       []*NodeExec          `yaml:"execs-pre,omitempty"`
-	ExecsStop      []*NodeExec          `yaml:"execs-stop,omitempty"`
-	Host           string               `yaml:"host,omitempty"`
-	User           string               `yaml:"user,omitempty"`
-	Port           int                  `yaml:"port,omitempty"`
-	KeyPath        string               `yaml:"keypath,omitempty"`
-	Passphrase     string               `yaml:"passphrase,omitempty"`
-	Password       string               `yaml:"password,omitempty"`
-	CallbackShells []*NodeCallbackShell `yaml:"callback-shells,omitempty"`
-	Children       []*Node              `yaml:"children,omitempty"`
-	Jump           []*Node              `yaml:"jump,omitempty"`
-	MergeIgnore    bool                 `yaml:"merge-ignore,omitempty"`
+	Name                 string                `yaml:"name"`
+	Alias                string                `yaml:"alias,omitempty"`
+	ExecsPre             []*NodeExec           `yaml:"execs-pre,omitempty"`
+	ExecsStop            []*NodeExec           `yaml:"execs-stop,omitempty"`
+	Host                 string                `yaml:"host,omitempty"`
+	User                 string                `yaml:"user,omitempty"`
+	Port                 int                   `yaml:"port,omitempty"`
+	KeyPath              string                `yaml:"keypath,omitempty"`
+	Passphrase           string                `yaml:"passphrase,omitempty"`
+	Password             string                `yaml:"password,omitempty"`
+	CallbackShells       []*NodeCallbackShell  `yaml:"callback-shells,omitempty"`
+	Children             []*Node               `yaml:"children,omitempty"`
+	Jump                 []*Node               `yaml:"jump,omitempty"`
+	MergeIgnore          bool                  `yaml:"merge-ignore,omitempty"`
+	KeyboardInteractions []KeyboardInteractive `yaml:"keyboard-interactions"`
+}
+
+// when it have KeyboardInteractive
+// sshw will answer question if question contains content that we set.
+// if AnswerAll is true, it will don't match question
+type KeyboardInteractive struct {
+	Question   string
+	Answer     string
+	GoogleAuth bool `yaml:"google-auth"`
 }
 
 // merge srcNode to dstNode
