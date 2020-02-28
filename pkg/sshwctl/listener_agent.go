@@ -1,4 +1,4 @@
-package sshw
+package sshwctl
 
 import (
 	"golang.org/x/crypto/ssh"

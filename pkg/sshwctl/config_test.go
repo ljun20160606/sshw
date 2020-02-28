@@ -1,4 +1,4 @@
-package sshw
+package sshwctl
 
 import (
 	"github.com/stretchr/testify/assert"

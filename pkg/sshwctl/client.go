@@ -1,8 +1,9 @@
-package sshw
+package sshwctl
 
 import (
 	"bytes"
 	"fmt"
+	ssh2 "github.com/ljun20160606/sshw/pkg/ssh"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
@@ -402,7 +403,7 @@ func execs(execs []*NodeExec) (bool, error) {
 // Checks the response it reads from the remote, and will return a single error in case
 // of failure
 func checkResponse(r io.Reader) error {
-	response, err := ParseResponse(r)
+	response, err := ssh2.ParseResponse(r)
 	if err != nil {
 		return err
 	}

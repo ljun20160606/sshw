@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/ljun20160606/sshw"
+	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -18,17 +18,17 @@ var mergeCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
-		pathname, dstNodes, err := sshw.LoadYamlConfig(filename)
+		pathname, dstNodes, err := sshwctl.LoadYamlConfig(filename)
 		if err != nil {
 			log.Error("load yaml config", err)
 			return
 		}
-		_, srcNodes, err := sshw.LoadYamlConfig(args[0])
+		_, srcNodes, err := sshwctl.LoadYamlConfig(args[0])
 		if err != nil {
 			log.Error("load expected merge yaml config", err)
 			return
 		}
-		sshw.MergeNodes(&dstNodes, srcNodes)
+		sshwctl.MergeNodes(&dstNodes, srcNodes)
 
 		mergedNodes, err := yaml.Marshal(dstNodes)
 		if err != nil {

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/hashicorp/go-version"
-	"github.com/ljun20160606/sshw"
+	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
@@ -28,10 +28,10 @@ func showVersion() {
 
 var (
 	originalWD, _    = os.Getwd()
-	githubRepository = &sshw.GithubRepository{
+	githubRepository = &sshwctl.GithubRepository{
 		Url:      "https://github.com",
 		Username: "ljun20160606",
-		Name:     sshw.ApplicationName,
+		Name:     sshwctl.ApplicationName,
 	}
 )
 
@@ -65,7 +65,7 @@ var upgradeCmd = &cobra.Command{
 			log.Error(err)
 			return
 		}
-		binaryFile, err := sshw.ExtractBinary(tempFile.Name(), false)
+		binaryFile, err := sshwctl.ExtractBinary(tempFile.Name(), false)
 		if err != nil {
 			log.Error(err)
 			return

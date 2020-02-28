@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"strings"
 
-	"github.com/ljun20160606/sshw"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
@@ -12,7 +12,7 @@ import (
 const prev = "-parent-"
 
 var (
-	log       = sshw.GetLogger()
+	log       = sshwctl.GetLogger()
 	templates = &promptui.SelectTemplates{
 		Label:    "✨ {{ . | green}}",
 		Active:   "➤ {{ .Name | cyan  }}{{if .Alias}}({{.Alias | yellow}}){{end}} {{if .Host}}{{if .User}}{{.User | faint}}{{`@` | faint}}{{end}}{{.Host | faint}}{{end}}",
@@ -39,21 +39,21 @@ func init() {
 			showVersion()
 			return
 		}
-		var nodes []*sshw.Node
+		var nodes []*sshwctl.Node
 		var err error
 		if useSsh := rootCmd.Flags().Lookup("ssh").Value.String(); useSsh == "true" {
-			if nodes, err = sshw.LoadSshConfig(); err != nil {
+			if nodes, err = sshwctl.LoadSshConfig(); err != nil {
 				log.Error("load ssh config", err)
 				return
 			}
 		} else {
 			filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
-			if _, nodes, err = sshw.LoadYamlConfig(filename); err != nil {
+			if _, nodes, err = sshwctl.LoadYamlConfig(filename); err != nil {
 				log.Error("load yaml config", err)
 				return
 			}
 		}
-		if err := sshw.PrepareConfig(nodes); err != nil {
+		if err := sshwctl.PrepareConfig(nodes); err != nil {
 			log.Error("prepare config", err)
 			return
 		}
@@ -77,8 +77,8 @@ func init() {
 	}
 }
 
-func ExecNode(node *sshw.Node) {
-	client := sshw.NewClient(node)
+func ExecNode(node *sshwctl.Node) {
+	client := sshwctl.NewClient(node)
 	if err := client.Connect(); err != nil {
 		log.Error(err)
 		return
@@ -98,7 +98,7 @@ func main() {
 	}
 }
 
-func findAlias(nodes []*sshw.Node, nodeAlias string) *sshw.Node {
+func findAlias(nodes []*sshwctl.Node, nodeAlias string) *sshwctl.Node {
 	for _, node := range nodes {
 		if node.Alias == nodeAlias {
 			return node
@@ -113,7 +113,7 @@ func findAlias(nodes []*sshw.Node, nodeAlias string) *sshw.Node {
 	return nil
 }
 
-func choose(root, parent, trees []*sshw.Node) *sshw.Node {
+func choose(root, parent, trees []*sshwctl.Node) *sshwctl.Node {
 	scopeAll := deepSearch(trees)
 	var scope []*interface{}
 	var searched bool
@@ -131,7 +131,7 @@ func choose(root, parent, trees []*sshw.Node) *sshw.Node {
 			}
 			scope = []*interface{}{}
 			for i := range scopeAll {
-				node := (*scopeAll[i]).(sshw.Node)
+				node := (*scopeAll[i]).(sshwctl.Node)
 				if searchMatch(input, &node) {
 					var tmp interface{} = node
 					scope = append(scope, &tmp)
@@ -146,9 +146,9 @@ func choose(root, parent, trees []*sshw.Node) *sshw.Node {
 		return nil
 	}
 
-	var node *sshw.Node
+	var node *sshwctl.Node
 	if searched {
-		n := (*scope[index]).(sshw.Node)
+		n := (*scope[index]).(sshwctl.Node)
 		node = &n
 	} else {
 		node = trees[index]
@@ -157,8 +157,8 @@ func choose(root, parent, trees []*sshw.Node) *sshw.Node {
 	if len(node.Children) > 0 {
 		first := node.Children[0]
 		if first.Name != prev {
-			first = &sshw.Node{Name: prev}
-			node.Children = append(node.Children[:0], append([]*sshw.Node{first}, node.Children...)...)
+			first = &sshwctl.Node{Name: prev}
+			node.Children = append(node.Children[:0], append([]*sshwctl.Node{first}, node.Children...)...)
 		}
 		return choose(root, trees, node.Children)
 	}
@@ -173,7 +173,7 @@ func choose(root, parent, trees []*sshw.Node) *sshw.Node {
 	return node
 }
 
-func deepSearch(trees []*sshw.Node) []*interface{} {
+func deepSearch(trees []*sshwctl.Node) []*interface{} {
 	var scope []*interface{}
 	for i := range trees {
 		deepSearchHelper(trees[i], &scope)
@@ -181,7 +181,7 @@ func deepSearch(trees []*sshw.Node) []*interface{} {
 	return scope
 }
 
-func deepSearchHelper(node *sshw.Node, scope *[]*interface{}) {
+func deepSearchHelper(node *sshwctl.Node, scope *[]*interface{}) {
 	if node == nil {
 		return
 	}
@@ -192,7 +192,7 @@ func deepSearchHelper(node *sshw.Node, scope *[]*interface{}) {
 	}
 }
 
-func searchMatch(input string, node *sshw.Node) bool {
+func searchMatch(input string, node *sshwctl.Node) bool {
 	content := fmt.Sprintf("%s %s %s", node.Name, node.User, node.Host)
 	if strings.Contains(input, " ") {
 		for _, key := range strings.Split(input, " ") {

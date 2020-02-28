@@ -1,4 +1,4 @@
-package sshw
+package sshwctl
 
 import (
 	"os"
