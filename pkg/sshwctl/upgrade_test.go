@@ -13,6 +13,13 @@ var g = &GithubRepository{
 	Name:     ApplicationName,
 }
 
+func TestAlphaVersion(t *testing.T) {
+	ast := assert.New(t)
+	versionAlpha, _ := version.NewVersion("v1.4.1-alpha")
+	versionRelease, _ :=version.NewVersion("v1.4.1")
+	ast.True(versionAlpha.Compare(versionRelease) < 0)
+}
+
 func TestGithubRepository_LatestVersions(t *testing.T) {
 	t.SkipNow()
 	ast := assert.New(t)
