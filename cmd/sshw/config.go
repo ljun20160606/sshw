@@ -20,23 +20,23 @@ var mergeCmd = &cobra.Command{
 		filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
 		pathname, dstNodes, err := sshwctl.LoadYamlConfig(filename)
 		if err != nil {
-			log.Error("load yaml config", err)
+			fmt.Println("load yaml config", err)
 			return
 		}
 		_, srcNodes, err := sshwctl.LoadYamlConfig(args[0])
 		if err != nil {
-			log.Error("load expected merge yaml config", err)
+			fmt.Println("load expected merge yaml config", err)
 			return
 		}
 		sshwctl.MergeNodes(&dstNodes, srcNodes)
 
 		mergedNodes, err := yaml.Marshal(dstNodes)
 		if err != nil {
-			log.Error("marshal merged config", err)
+			fmt.Println("marshal merged config", err)
 			return
 		}
 		if err := backupAndReplaceFile(pathname, bytes.NewReader(mergedNodes)); err != nil {
-			log.Error("replace config", err)
+			fmt.Println("replace config", err)
 			return
 		}
 		fmt.Println("Merge finished")

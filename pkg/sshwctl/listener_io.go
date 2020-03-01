@@ -5,7 +5,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	"io"
 	"math"
-	"os"
 	"time"
 )
 
@@ -23,12 +22,12 @@ type LifecycleIO struct {
 }
 
 func (*LifecycleIO) OnStdout(node *Node, bytes []byte) error {
-	_, err := os.Stdout.Write(bytes)
+	_, err := node.stdout().Write(bytes)
 	return err
 }
 
 func (*LifecycleIO) OnStderr(node *Node, bytes []byte) error {
-	_, err := os.Stderr.Write(bytes)
+	_, err := node.stderr().Write(bytes)
 	return err
 }
 
@@ -36,7 +35,7 @@ func (*LifecycleIO) Priority() int {
 	return math.MinInt32
 }
 
-func readLine(session *ssh.Session, getReader func() (io.Reader, error), lineSolver func(line []byte) error) error {
+func readLine(node *Node, session *ssh.Session, getReader func() (io.Reader, error), lineSolver func(line []byte) error) error {
 	r, err := getReader()
 	if err != nil {
 		return err
@@ -49,7 +48,7 @@ func readLine(session *ssh.Session, getReader func() (io.Reader, error), lineSol
 			b, err := reader.ReadByte()
 			if err != nil {
 				if err != io.EOF {
-					l.Error(err)
+					node.Error(err)
 				}
 				_ = session.Close()
 				return
@@ -70,7 +69,7 @@ func readLine(session *ssh.Session, getReader func() (io.Reader, error), lineSol
 				}
 
 				if err := lineSolver(buf); err != nil {
-					l.Error(err)
+					node.Error(err)
 					_ = session.Close()
 					return
 				}

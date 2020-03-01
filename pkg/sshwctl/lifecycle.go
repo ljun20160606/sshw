@@ -29,13 +29,24 @@ var (
 	ErrorInterrupt = errors.New("interrupt")
 )
 
-var lifecycleComposite = new(LifecycleComposite)
+func NewLifeCycleComposite() *LifecycleComposite {
+	l := new(LifecycleComposite)
+	for i := range lifecycleInitial {
+		f := lifecycleInitial[i]
+		f(&l.queue)
+	}
+	return l
+}
 
 func RegisterLifecycle(lifecycle Lifecycle) {
-	heap.Push(&lifecycleComposite.queue, lifecycle)
+	lifecycleInitial = append(lifecycleInitial, func(queue *LifecycleQueue) {
+		heap.Push(queue, lifecycle)
+	})
 }
 
 var _ Lifecycle = new(LifecycleComposite)
+
+var lifecycleInitial []func(queue *LifecycleQueue)
 
 type LifecycleComposite struct {
 	queue LifecycleQueue

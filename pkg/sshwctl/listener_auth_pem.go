@@ -1,6 +1,7 @@
 package sshwctl
 
 import (
+	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"os/user"
@@ -20,7 +21,7 @@ type LifecyclePem struct {
 func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
 	u, err := user.Current()
 	if err != nil {
-		l.Error(err)
+		fmt.Println(err)
 		return nil
 	}
 	var pemBytes []byte
@@ -30,7 +31,7 @@ func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientCo
 		pemBytes, err = ioutil.ReadFile(node.KeyPath)
 	}
 	if err != nil {
-		l.Error(err)
+		fmt.Println(err)
 	} else {
 		var signer ssh.Signer
 		if node.Passphrase != "" {
@@ -39,7 +40,7 @@ func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientCo
 			signer, err = ssh.ParsePrivateKey(pemBytes)
 		}
 		if err != nil {
-			l.Error(err)
+			fmt.Println(err)
 		} else {
 			clientConfig.Auth = append(clientConfig.Auth, ssh.PublicKeys(signer))
 		}

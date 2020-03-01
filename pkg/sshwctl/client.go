@@ -2,8 +2,8 @@ package sshwctl
 
 import (
 	"bytes"
+	"context"
 	"fmt"
-	ssh2 "github.com/ljun20160606/sshw/pkg/ssh"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
@@ -38,10 +38,65 @@ var (
 	}
 )
 
+func ExecNode(node *Node) error {
+	client := NewClient(node)
+	if err := client.ExecsPre(); err != nil {
+		return err
+	}
+	if err := client.Connect(); err != nil {
+		return err
+	}
+	defer func() {
+		_ = client.Close()
+	}()
+	if err := client.InitTerminal(); err != nil {
+		return err
+	}
+	client.WatchWindowChange(func(ch, cw int) error {
+		// todo change session's window
+		return nil
+	})
+	if err := client.Scp(); err != nil {
+		return err
+	}
+	if err := client.Shell(); err != nil {
+		return err
+	}
+	if err := client.ExecsPost(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type Client interface {
+	// -----local
+	// run pre commands
+	ExecsPre() error
+	// terminal makeRaw and store width height
+	InitTerminal() error
+	// run post commands
+	ExecsPost() error
+	WatchWindowChange(windowChange func(ch, cw int) error)
+
+	// -----local or remote
 	Connect() error
-	OpenTerminal() error
+	Scp() error
+	Shell() error
 	Close() error
+
+	// -----remote
+	GetClient() *ssh.Client
+	SetClient(client *ssh.Client)
+	// send keepalive to ssh server
+	Ping() error
+}
+
+func (c *defaultClient) Ping() error {
+	if c.client == nil {
+		return errors.New("need init ssh.client")
+	}
+	_, _, err := c.client.SendRequest("keepalive@openssh.com", false, nil)
+	return err
 }
 
 func NewClient(node *Node) Client {
@@ -53,6 +108,17 @@ type defaultClient struct {
 	node         *Node
 	agent        agent.Agent
 	client       *ssh.Client
+	lifecycle    Lifecycle
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
+}
+
+func (c *defaultClient) GetClient() *ssh.Client {
+	return c.client
+}
+
+func (c *defaultClient) SetClient(client *ssh.Client) {
+	c.client = client
 }
 
 func newClient(node *Node) *defaultClient {
@@ -62,8 +128,9 @@ func newClient(node *Node) *defaultClient {
 		Timeout:         time.Second * 10,
 	}
 
-	if err := lifecycleComposite.PostInitClientConfig(node, config); err != nil {
-		l.Error(err)
+	lifeCycleComposite := NewLifeCycleComposite()
+	if err := lifeCycleComposite.PostInitClientConfig(node, config); err != nil {
+		node.Error(err)
 	}
 
 	config.SetDefaults()
@@ -71,6 +138,7 @@ func newClient(node *Node) *defaultClient {
 
 	return &defaultClient{
 		clientConfig: config,
+		lifecycle:    lifeCycleComposite,
 		node:         node,
 	}
 }
@@ -97,7 +165,7 @@ func (c *defaultClient) dial() (*ssh.Client, error) {
 		msg := err.Error()
 		// use terminal password retry
 		if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
-			fmt.Printf("%s@%s's password:", c.clientConfig.User, c.node.Host)
+			c.node.Print(fmt.Sprintf("%s@%s's password:", c.clientConfig.User, c.node.Host))
 			var b []byte
 			b, err = terminal.ReadPassword(syscall.Stdin)
 			if err == nil {
@@ -105,7 +173,7 @@ func (c *defaultClient) dial() (*ssh.Client, error) {
 				if p != "" {
 					c.clientConfig.Auth = append(c.clientConfig.Auth, ssh.Password(p))
 				}
-				fmt.Println()
+				c.node.Println("")
 				client, err = ssh.Dial("tcp", c.node.addr(), c.clientConfig)
 			}
 		}
@@ -128,14 +196,18 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 	return client, nil
 }
 
-func (c *defaultClient) Connect() error {
-	if hasVar, err := execs(c.node.ExecsPre); err != nil {
+func (c *defaultClient) ExecsPre() error {
+	if hasVar, err := execs(c.node.ExecsPre, c.node.stdin(), c.node.stdout()); err != nil {
 		return err
 	} else if hasVar {
 		if err = PrepareConfig(c.node); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c *defaultClient) Connect() error {
 	if len(c.node.ExecsPre) != 0 && c.node.Host == "" {
 		return errors.New("can not run")
 	}
@@ -147,25 +219,110 @@ func (c *defaultClient) Connect() error {
 
 	c.client = client
 
-	l.Infof("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion()))
+	c.node.Println(fmt.Sprintf("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion())))
+
+	if err := c.lifecycle.PostSSHDial(c.node, c.client); err != nil {
+		return err
+	}
+
+	c.ctx, c.cancelFunc = context.WithCancel(context.Background())
+
+	// send keepalive
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			select {
+			case <-c.ctx.Done():
+				return
+			default:
+				if err := c.Ping(); err != nil && strings.Contains(err.Error(), "use of closed network") {
+					return
+				}
+			}
+		}
+	}()
 
 	return nil
 }
 
-func (c *defaultClient) OpenTerminal() error {
+func (c *defaultClient) InitTerminal() error {
+	fd := int(os.Stdin.Fd())
+	if state, err := terminal.MakeRaw(fd); err != nil {
+		c.node.State = state
+	}
+	w, h, err := terminal.GetSize(fd)
+	if err != nil {
+		return err
+	}
+	c.node.Width = w
+	c.node.Height = h
+	return nil
+}
+
+func (c *defaultClient) Scp() error {
 	if c.client == nil {
 		return errors.New("must start client")
 	}
 
-	if err := lifecycleComposite.PostSSHDial(c.node, c.client); err != nil {
-		return err
-	}
-
 	for i := range c.node.Scps {
 		nodeCp := c.node.Scps[i]
-		if err := c.Scp(nodeCp); err != nil {
+		if err := c.scp(nodeCp); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// send terminal request in session
+func (c *defaultClient) xterm(session *ssh.Session) error {
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          1,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}
+	if err := session.RequestPty("xterm", c.node.Height, c.node.Width, modes); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *defaultClient) ChangeWindow(session *ssh.Session, ch, cw int) error {
+	return session.WindowChange(ch, cw)
+}
+
+func (c *defaultClient) WatchWindowChange(windowChange func(ch, cw int) error) {
+	go func() {
+		// interval get terminal size
+		// fix resize issue
+		var (
+			ow = c.node.Width
+			oh = c.node.Height
+		)
+		for {
+			cw, ch, err := terminal.GetSize(int(os.Stdin.Fd()))
+			if err != nil {
+				break
+			}
+
+			if cw != ow || ch != oh {
+				if err := windowChange(ch, cw); err != nil {
+					break
+				}
+				ow = cw
+				oh = ch
+			}
+			time.Sleep(time.Second)
+		}
+	}()
+}
+
+func (c *defaultClient) RecoverTerminal() {
+	_ = terminal.Restore(int(os.Stdin.Fd()), c.node.State)
+}
+
+func (c *defaultClient) Shell() error {
+	if c.client == nil {
+		return errors.New("must start client")
 	}
 
 	session, err := c.client.NewSession()
@@ -176,26 +333,30 @@ func (c *defaultClient) OpenTerminal() error {
 		_ = session.Close()
 	}()
 
-	if err := lifecycleComposite.PostNewSession(c.node, session); err != nil {
+	if err := c.xterm(session); err != nil {
 		return err
 	}
 
-	// stdin
+	if err := c.lifecycle.PostNewSession(c.node, session); err != nil {
+		return err
+	}
+
+	// stdin, must be here, get it before session start
 	stdinPipe, err := session.StdinPipe()
 	if err != nil {
 		return err
 	}
 
 	// stdout
-	if err := readLine(session, session.StdoutPipe, func(line []byte) error {
-		return lifecycleComposite.OnStdout(c.node, line)
+	if err := readLine(c.node, session, session.StdoutPipe, func(line []byte) error {
+		return c.lifecycle.OnStdout(c.node, line)
 	}); err != nil {
 		return errors.Wrap(err, "stdout")
 	}
 
 	// stderr
-	if err := readLine(session, session.StderrPipe, func(line []byte) error {
-		return lifecycleComposite.OnStderr(c.node, line)
+	if err := readLine(c.node, session, session.StderrPipe, func(line []byte) error {
+		return c.lifecycle.OnStderr(c.node, line)
 	}); err != nil {
 		return errors.Wrap(err, "stderr")
 	}
@@ -205,30 +366,27 @@ func (c *defaultClient) OpenTerminal() error {
 		return err
 	}
 
-	if err = lifecycleComposite.PostShell(c.node, stdinPipe); err != nil {
+	if err := c.lifecycle.PostShell(c.node, stdinPipe); err != nil {
 		return err
 	}
 
 	// change stdin to user
 	go func() {
-		_, err = io.Copy(stdinPipe, os.Stdin)
-		l.Error(err)
+		if _, err := io.Copy(stdinPipe, c.node.stdin()); err != nil {
+			c.node.Error(err)
+		}
 		_ = session.Close()
 	}()
 
-	// send keepalive
-	go func() {
-		for {
-			time.Sleep(time.Second * 5)
-			_, _, _ = c.client.SendRequest("keepalive@openssh.com", false, nil)
-		}
-	}()
-
 	_ = session.Wait()
-	if err := lifecycleComposite.PostSessionWait(c.node); err != nil {
+	if err := c.lifecycle.PostSessionWait(c.node); err != nil {
 		return err
 	}
-	if _, err := execs(c.node.ExecsStop); err != nil {
+	return nil
+}
+
+func (c *defaultClient) ExecsPost() error {
+	if _, err := execs(c.node.ExecsStop, c.node.stdin(), c.node.stdout()); err != nil {
 		return err
 	}
 	return nil
@@ -236,7 +394,7 @@ func (c *defaultClient) OpenTerminal() error {
 
 // like shell scp
 // cp local file into server
-func (c *defaultClient) Scp(cp *NodeCp) error {
+func (c *defaultClient) scp(cp *NodeCp) error {
 	session, err := c.client.NewSession()
 	if err != nil {
 		return errors.New("Failed to create session: " + err.Error())
@@ -310,7 +468,7 @@ func (c *defaultClient) Scp(cp *NodeCp) error {
 	}()
 
 	go func() {
-		fmt.Println("scp " + cp.Src + " remote:" + cp.Tgt)
+		c.node.Println("scp " + cp.Src + " remote:" + cp.Tgt)
 		defer wg.Done()
 		if err := session.Run(fmt.Sprintf("%s -qt %s", "scp", remotePath)); err != nil {
 			errCh <- err
@@ -356,6 +514,9 @@ func (c *defaultClient) Close() error {
 	if c.client == nil {
 		return nil
 	}
+	if c.cancelFunc != nil {
+		c.cancelFunc()
+	}
 	return c.client.Close()
 }
 
@@ -370,7 +531,7 @@ func shell() string {
 // execute command
 // set output into env, key is var
 // if has var return true
-func execs(execs []*NodeExec) (bool, error) {
+func execs(execs []*NodeExec, stdin io.Reader, stdout io.Writer) (bool, error) {
 	var hasVar bool
 	currentShell := shell()
 	for i := range execs {
@@ -379,15 +540,15 @@ func execs(execs []*NodeExec) (bool, error) {
 		command := exec.Command(currentShell, "-c", cmdStr)
 		var buffer *bytes.Buffer
 		if nodeExec.Var == "" {
-			command.Stdout = os.Stdout
+			command.Stdout = stdout
 		} else {
 			hasVar = true
 			buffer = bytes.NewBuffer(nil)
-			command.Stdout = io.MultiWriter(os.Stdout, buffer)
+			command.Stdout = io.MultiWriter(stdout, buffer)
 		}
-		command.Stderr = os.Stderr
-		command.Stdin = os.Stdin
-		_, _ = io.WriteString(os.Stdout, cmdStr+"\n")
+		command.Stderr = stdout
+		command.Stdin = stdin
+		_, _ = io.WriteString(stdout, cmdStr+"\n")
 		if err := command.Run(); err != nil {
 			return hasVar, err
 		}
@@ -403,7 +564,7 @@ func execs(execs []*NodeExec) (bool, error) {
 // Checks the response it reads from the remote, and will return a single error in case
 // of failure
 func checkResponse(r io.Reader) error {
-	response, err := ssh2.ParseResponse(r)
+	response, err := ParseResponse(r)
 	if err != nil {
 		return err
 	}

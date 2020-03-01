@@ -2,11 +2,9 @@ package sshwctl
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/dgryski/dgoogauth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
-	"os"
 	"strconv"
 	"strings"
 	"syscall"
@@ -36,22 +34,22 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 		answers := make([]string, 0, len(questions))
 	QUESTIONS:
 		for i, q := range questions {
-			fmt.Print(q)
-			for i := range node.KeyboardInteractions {
-				keyboardInteractive := node.KeyboardInteractions[i]
+			node.Print(q)
+			for interactIndex := range node.KeyboardInteractions {
+				keyboardInteractive := node.KeyboardInteractions[interactIndex]
 				if strings.Contains(q, keyboardInteractive.Question) {
 					answer := keyboardInteractive.Answer
 					if keyboardInteractive.GoogleAuth {
 						code := dgoogauth.ComputeCode(keyboardInteractive.Answer, time.Now().Unix()/30)
-						fmt.Print(code)
 						answer = strconv.Itoa(code)
+						node.Print(answer)
 					}
 					answers = append(answers, answer)
 					continue QUESTIONS
 				}
 			}
 			if echos[i] {
-				scan := bufio.NewScanner(os.Stdin)
+				scan := bufio.NewScanner(node.stdin())
 				if scan.Scan() {
 					answers = append(answers, scan.Text())
 				}
@@ -59,11 +57,11 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 					return nil, err
 				}
 			} else {
-				b, err := terminal.ReadPassword(int(syscall.Stdin))
+				b, err := terminal.ReadPassword(syscall.Stdin)
 				if err != nil {
 					return nil, err
 				}
-				fmt.Println()
+				node.Println("")
 				answers = append(answers, string(b))
 			}
 		}
