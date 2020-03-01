@@ -37,12 +37,13 @@ type Node struct {
 	MergeIgnore          bool                  `yaml:"merge-ignore,omitempty"`
 	KeyboardInteractions []KeyboardInteractive `yaml:"keyboard-interactions"`
 
-	Stdin  io.Reader       `yaml:"-"`
-	Stdout io.Writer       `yaml:"-"`
-	Stderr io.Writer       `yaml:"-"`
-	Width  int             `yaml:"-"`
-	Height int             `yaml:"-"`
-	State  *terminal.State `yaml:"-"`
+	Stdin   io.Reader       `yaml:"-"`
+	Stdout  io.Writer       `yaml:"-"`
+	Stderr  io.Writer       `yaml:"-"`
+	Width   int             `yaml:"-"`
+	Height  int             `yaml:"-"`
+	State   *terminal.State `yaml:"-"`
+	Session *ssh.Session    `yaml:"-"`
 }
 
 func (n *Node) stdin() io.Reader {
