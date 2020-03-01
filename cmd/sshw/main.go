@@ -86,6 +86,9 @@ func init() {
 }
 
 func ExecNode(node *sshwctl.Node) error {
+	if node.ControlMaster != nil && !*node.ControlMaster {
+		return sshwctl.ExecNode(node)
+	}
 	if !multiplex.IsRunning() {
 		path, err := exec.LookPath(os.Args[0])
 		if err != nil {

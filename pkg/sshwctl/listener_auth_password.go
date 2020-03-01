@@ -5,9 +5,9 @@ import (
 	"github.com/dgryski/dgoogauth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
+	"os"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -57,7 +57,8 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 					return nil, err
 				}
 			} else {
-				b, err := terminal.ReadPassword(syscall.Stdin)
+				// todo agent
+				b, err := terminal.ReadPassword(int(os.Stdin.Fd()))
 				if err != nil {
 					return nil, err
 				}

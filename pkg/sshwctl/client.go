@@ -12,7 +12,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -169,7 +168,8 @@ func (c *defaultClient) dial() (*ssh.Client, error) {
 		if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
 			c.node.Print(fmt.Sprintf("%s@%s's password:", c.clientConfig.User, c.node.Host))
 			var b []byte
-			b, err = terminal.ReadPassword(syscall.Stdin)
+			// todo agent
+			b, err = terminal.ReadPassword(int(os.Stdin.Fd()))
 			if err == nil {
 				p := string(b)
 				if p != "" {

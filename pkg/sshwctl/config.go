@@ -36,6 +36,7 @@ type Node struct {
 	Jump                 []*Node               `yaml:"jump,omitempty"`
 	MergeIgnore          bool                  `yaml:"merge-ignore,omitempty"`
 	KeyboardInteractions []KeyboardInteractive `yaml:"keyboard-interactions"`
+	ControlMaster        *bool                 `yaml:"control-master"`
 
 	Stdin   io.Reader       `yaml:"-"`
 	Stdout  io.Writer       `yaml:"-"`
