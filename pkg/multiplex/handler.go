@@ -42,7 +42,7 @@ func (s *StdConn) Close() {
 }
 
 type ChangeWindowRequest struct {
-	Weight int
+	Width  int
 	Height int
 }
 
@@ -144,11 +144,15 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 		// watch window change
 		go func() {
 			for {
-				request := &ChangeWindowRequest{}
-				if err := req.R.Read(request); err != nil {
+				window := &ChangeWindowRequest{}
+				if err := req.R.Read(window); err != nil {
 					return
 				}
-				// todo change session's window
+				if node.Session != nil {
+					if err := node.Session.WindowChange(window.Height, window.Width); err != nil {
+						return
+					}
+				}
 			}
 		}()
 		m.Process(w, stdConn, client.Scp, client.Shell)

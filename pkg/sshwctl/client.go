@@ -53,7 +53,9 @@ func ExecNode(node *Node) error {
 		return err
 	}
 	client.WatchWindowChange(func(ch, cw int) error {
-		// todo change session's window
+		if node.Session != nil {
+			return node.Session.WindowChange(ch, cw)
+		}
 		return nil
 	})
 	if err := client.Scp(); err != nil {
@@ -332,6 +334,8 @@ func (c *defaultClient) Shell() error {
 	defer func() {
 		_ = session.Close()
 	}()
+
+	c.node.Session = session
 
 	if err := c.xterm(session); err != nil {
 		return err

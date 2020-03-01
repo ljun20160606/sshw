@@ -90,7 +90,7 @@ func (c *Agent) OpenSession(num int64) error {
 	// watch window change
 	c.Client.WatchWindowChange(func(ch, cw int) error {
 		request := ChangeWindowRequest{
-			Weight: cw,
+			Width:  cw,
 			Height: ch,
 		}
 		if err := writer.Write(request); err != nil {
