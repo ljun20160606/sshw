@@ -2,6 +2,8 @@ package sshwctl
 
 import (
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -34,6 +36,46 @@ type Node struct {
 	Jump                 []*Node               `yaml:"jump,omitempty"`
 	MergeIgnore          bool                  `yaml:"merge-ignore,omitempty"`
 	KeyboardInteractions []KeyboardInteractive `yaml:"keyboard-interactions"`
+
+	Stdin  io.Reader       `yaml:"-"`
+	Stdout io.Writer       `yaml:"-"`
+	Stderr io.Writer       `yaml:"-"`
+	Width  int             `yaml:"-"`
+	Height int             `yaml:"-"`
+	State  *terminal.State `yaml:"-"`
+}
+
+func (n *Node) stdin() io.Reader {
+	if n.Stdin != nil {
+		return n.Stdin
+	}
+	return os.Stdin
+}
+
+func (n *Node) stdout() io.Writer {
+	if n.Stdout != nil {
+		return n.Stdout
+	}
+	return os.Stdout
+}
+
+func (n *Node) stderr() io.Writer {
+	if n.Stderr != nil {
+		return n.Stderr
+	}
+	return os.Stderr
+}
+
+func (n *Node) Print(message string) {
+	_, _ = n.stdout().Write([]byte(message))
+}
+
+func (n *Node) Println(message string) {
+	_, _ = n.stdout().Write([]byte(message + "\n"))
+}
+
+func (n *Node) Error(err error) {
+	_, _ = n.stderr().Write([]byte(err.Error()))
 }
 
 // when it have KeyboardInteractive
@@ -102,14 +144,14 @@ type NodeCallbackShell struct {
 }
 
 type NodeCp struct {
-	Src     string `yaml:"src"`
-	Tgt     string `yaml:"tgt"`
+	Src string `yaml:"src"`
+	Tgt string `yaml:"tgt"`
 	// seconds
 	Timeout int64
 }
 
 func (n *Node) String() string {
-	return n.Name
+	return n.user() + "@" + n.addr()
 }
 
 func (n *Node) user() string {

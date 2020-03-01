@@ -74,7 +74,7 @@ func NewParamNode(v string) *TemplateNode {
 	}
 }
 
-// Parse string to Template
+// Read string to Template
 // For example:
 // INPUT:
 // ParseSshwTemplate("Foo${foo:a}bar")

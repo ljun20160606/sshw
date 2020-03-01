@@ -1,7 +1,7 @@
 /*
  * Reference https://github.com/bramvdbogaerde/go-scp/blob/master/protocol.go
  */
-package ssh
+package sshwctl
 
 import (
 	"bufio"

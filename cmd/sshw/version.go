@@ -41,17 +41,17 @@ var upgradeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		versionMeta, err := githubRepository.LatestVersion()
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		remoteVersion, err := version.NewVersion(versionMeta.Version)
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		localVersion, err := version.NewVersion(Version)
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		if localVersion.Compare(remoteVersion) >= 0 {
@@ -62,25 +62,25 @@ var upgradeCmd = &cobra.Command{
 		}
 		tempFile, err := githubRepository.Download(versionMeta)
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		binaryFile, err := sshwctl.ExtractBinary(tempFile.Name(), false)
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		defer binaryFile.Close()
 		path, err := exec.LookPath(os.Args[0])
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		fmt.Println("Exec path ", path)
 		fmt.Println("Upgrade started")
 		binaryFile.Seek(0, 0)
 		if err := backupAndReplaceFile(path, binaryFile); err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		fmt.Println("Upgrade finished")
@@ -92,7 +92,7 @@ var upgradeCmd = &cobra.Command{
 			Files: allFiles,
 		})
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 	},
@@ -104,7 +104,7 @@ var latestCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		versionMeta, err := githubRepository.LatestVersion()
 		if err != nil {
-			log.Error(err)
+			fmt.Println(err)
 			return
 		}
 		showVersion()

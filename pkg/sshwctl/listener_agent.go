@@ -6,6 +6,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"strings"
 )
 
 func init() {
@@ -50,7 +51,7 @@ func (l *LifecycleAgent) PostSSHDial(node *Node, client *ssh.Client) error {
 
 func (l *LifecycleAgent) PostNewSession(node *Node, session *ssh.Session) error {
 	if l.agent != nil {
-		if err := agent.RequestAgentForwarding(session); err != nil {
+		if err := agent.RequestAgentForwarding(session); err != nil && !strings.Contains(err.Error(), "forwarding request denied") {
 			return err
 		}
 	}

@@ -2,17 +2,21 @@ package main
 
 import (
 	"fmt"
+	"github.com/ljun20160606/sshw/pkg/multiplex"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
-	"strings"
-
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const prev = "-parent-"
 
 var (
-	log       = sshwctl.GetLogger()
 	templates = &promptui.SelectTemplates{
 		Label:    "✨ {{ . | green}}",
 		Active:   "➤ {{ .Name | cyan  }}{{if .Alias}}({{.Alias | yellow}}){{end}} {{if .Host}}{{if .User}}{{.User | faint}}{{`@` | faint}}{{end}}{{.Host | faint}}{{end}}",
@@ -43,18 +47,18 @@ func init() {
 		var err error
 		if useSsh := rootCmd.Flags().Lookup("ssh").Value.String(); useSsh == "true" {
 			if nodes, err = sshwctl.LoadSshConfig(); err != nil {
-				log.Error("load ssh config", err)
+				fmt.Println("load ssh config", err)
 				return
 			}
 		} else {
 			filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
 			if _, nodes, err = sshwctl.LoadYamlConfig(filename); err != nil {
-				log.Error("load yaml config", err)
+				fmt.Println("load yaml config", err)
 				return
 			}
 		}
 		if err := sshwctl.PrepareConfig(nodes); err != nil {
-			log.Error("prepare config", err)
+			fmt.Println("prepare config", err)
 			return
 		}
 
@@ -63,7 +67,9 @@ func init() {
 			var nodeAlias = args[0]
 			var node = findAlias(nodes, nodeAlias)
 			if node != nil {
-				ExecNode(node)
+				if err := ExecNode(node); err != nil {
+					fmt.Println(err)
+				}
 				return
 			}
 		}
@@ -73,22 +79,41 @@ func init() {
 			return
 		}
 
-		ExecNode(node)
+		if err := ExecNode(node); err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
-func ExecNode(node *sshwctl.Node) {
-	client := sshwctl.NewClient(node)
-	if err := client.Connect(); err != nil {
-		log.Error(err)
-		return
+func ExecNode(node *sshwctl.Node) error {
+	if !multiplex.IsRunning() {
+		path, err := exec.LookPath(os.Args[0])
+		if err != nil {
+			return err
+		}
+		file, err := os.OpenFile(multiplex.SocketDir+"/sshw.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+		if err != nil {
+			return err
+		}
+		cmd := exec.Command(path, "server")
+		cmd.Stdout = file
+		cmd.Stderr = file
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+		_ = ioutil.WriteFile(multiplex.SocketDir+"/sshw.pid", []byte(strconv.Itoa(cmd.Process.Pid)), 0755)
 	}
-	defer func() {
-		_ = client.Close()
-	}()
-	if err := client.OpenTerminal(); err != nil {
-		log.Error(err)
-		return
+	timeout := time.Now().Add(time.Second)
+	for {
+		if multiplex.IsRunning() {
+			return multiplex.ExecNode(node)
+		}
+		if time.Now().Before(timeout) {
+			time.Sleep(30 * time.Millisecond)
+			continue
+		}
+		fmt.Println("can not run daemon server, exec directly")
+		return sshwctl.ExecNode(node)
 	}
 }
 
