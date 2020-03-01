@@ -7,7 +7,7 @@ import (
 
 // if t.kind() in array or slice, name is $index
 // return true, if would skip deepSearching type like slice or array or map
-type ValueSolver func(k string, t reflect.Type, v reflect.Value) (skipSearch bool)
+type ValueSolver func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (skipSearch bool)
 
 const (
 	WalkIndexFlag = "$index"
@@ -19,6 +19,9 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 	var realT reflect.Type
 	var realV reflect.Value
 	if t.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return nil
+		}
 		realT = t.Elem()
 		realV = v.Elem()
 	} else {
@@ -31,7 +34,7 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 		for num := 0; num < realV.NumField(); num++ {
 			field := realT.Field(num)
 			value := realV.Field(num)
-			if skip := solver(field.Name, value.Type(), value); skip {
+			if skip := solver(field.Name, value.Type(), value, &field); skip {
 				continue
 			}
 			if err := WalkInterface(value, true, solver); err != nil {
@@ -41,7 +44,7 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 	case reflect.Slice, reflect.Array:
 		for num := 0; num < realV.Len(); num++ {
 			index := realV.Index(num)
-			if skip := solver(WalkIndexFlag, index.Type(), index); skip {
+			if skip := solver(WalkIndexFlag, index.Type(), index, nil); skip {
 				continue
 			}
 			if err := WalkInterface(index, true, solver); err != nil {
@@ -56,7 +59,7 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 			if key.Kind() != reflect.String {
 				return errors.New("only support key of string in map")
 			}
-			if skip := solver(key.Interface().(string), value.Type(), value); skip {
+			if skip := solver(key.Interface().(string), value.Type(), value, nil); skip {
 				continue
 			}
 			if err := WalkInterface(value, true, solver); err != nil {
@@ -65,7 +68,7 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 		}
 	default:
 		if !walked {
-			if skip := solver(WalkOtherFlag, realT, realV); skip {
+			if skip := solver(WalkOtherFlag, realT, realV, nil); skip {
 				return nil
 			}
 		}
@@ -77,9 +80,15 @@ func WalkInterface(v reflect.Value, walked bool, solver ValueSolver) error {
 // if key in ignoreKeys, skip validation
 func FieldsNotEmpty(v interface{}, ignoreKeys []string) ([]string, error) {
 	var notEmptyNames []string
-	if err := WalkInterface(reflect.ValueOf(v), false, func(k string, t reflect.Type, v reflect.Value) (skip bool) {
+	if err := WalkInterface(reflect.ValueOf(v), false, func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (skip bool) {
 		for i := range ignoreKeys {
 			if ignoreKeys[i] == k {
+				return true
+			}
+		}
+
+		if structField != nil {
+			if structField.Tag.Get("yaml") == "-" || structField.Tag.Get("json") == "-" {
 				return true
 			}
 		}

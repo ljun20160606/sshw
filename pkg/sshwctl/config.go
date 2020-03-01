@@ -150,7 +150,7 @@ func (n *Node) alias() string {
 
 // render template into nodes
 func PrepareConfig(config interface{}) error {
-	return WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value) (stop bool) {
+	return WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (stop bool) {
 		if t.Kind() != reflect.String || !v.CanSet() {
 			return
 		}

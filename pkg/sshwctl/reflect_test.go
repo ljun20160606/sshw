@@ -24,7 +24,7 @@ func TestWalkInterface(t *testing.T) {
 			args: args{
 				v:      reflect.ValueOf([]*Node{{Name: "foo"}}),
 				walked: false,
-				solver: func(k string, t reflect.Type, v reflect.Value) (stop bool) {
+				solver: func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (stop bool) {
 					if t.Kind() == reflect.String && v.CanSet() {
 						if k == "Name" {
 							v.Set(reflect.ValueOf("bar"))

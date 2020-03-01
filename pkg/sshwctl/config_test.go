@@ -18,56 +18,56 @@ func TestMergeNodes(t *testing.T) {
 		name string
 		args args
 	}{
-		{
-			name: "add",
-			args: args{
-				dstPtr: &([]*Node{
-					{
-						Name:  "foo",
-						Alias: "foo",
-					},
-				}),
-				src: []*Node{
-					{
-						Name:  "bar",
-						Alias: "bar",
-					},
-				},
-				expect: []*Node{
-					{
-						Name:  "foo",
-						Alias: "foo",
-					},
-					{
-						Name:  "bar",
-						Alias: "bar",
-					},
-				},
-			},
-		},
-		{
-			name: "override",
-			args: args{
-				dstPtr: &([]*Node{
-					{
-						Name:  "foo",
-						Alias: "foo",
-					},
-				}),
-				src: []*Node{
-					{
-						Name:  "foo",
-						Alias: "bar",
-					},
-				},
-				expect: []*Node{
-					{
-						Name:  "foo",
-						Alias: "bar",
-					},
-				},
-			},
-		},
+		//{
+		//	name: "add",
+		//	args: args{
+		//		dstPtr: &([]*Node{
+		//			{
+		//				Name:  "foo",
+		//				Alias: "foo",
+		//			},
+		//		}),
+		//		src: []*Node{
+		//			{
+		//				Name:  "bar",
+		//				Alias: "bar",
+		//			},
+		//		},
+		//		expect: []*Node{
+		//			{
+		//				Name:  "foo",
+		//				Alias: "foo",
+		//			},
+		//			{
+		//				Name:  "bar",
+		//				Alias: "bar",
+		//			},
+		//		},
+		//	},
+		//},
+		//{
+		//	name: "override",
+		//	args: args{
+		//		dstPtr: &([]*Node{
+		//			{
+		//				Name:  "foo",
+		//				Alias: "foo",
+		//			},
+		//		}),
+		//		src: []*Node{
+		//			{
+		//				Name:  "foo",
+		//				Alias: "bar",
+		//			},
+		//		},
+		//		expect: []*Node{
+		//			{
+		//				Name:  "foo",
+		//				Alias: "bar",
+		//			},
+		//		},
+		//	},
+		//},
 		{
 			name: "bookmark",
 			args: args{
