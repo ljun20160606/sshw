@@ -132,7 +132,7 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 		node.Stdout = stdConn.Stdout
 		node.Stderr = stdConn.Stderr
 
-		client, err := m.NewClient(node, w, stdConn)
+		client, err := m.NewClient(node)
 		if err != nil {
 			defer m.CloseConn(w)
 			defer m.CloseStd(stdConn)
@@ -163,7 +163,7 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 	m.CloseConn(w)
 }
 
-func (m *MasterHandler) NewClient(node *sshwctl.Node, w ResponseWriter, stdConn *StdConn) (sshwctl.Client, error) {
+func (m *MasterHandler) NewClient(node *sshwctl.Node) (sshwctl.Client, error) {
 	name := node.String()
 	newClient := sshwctl.NewClient(node)
 	if client, ok := m.GetClient(name); !ok {
