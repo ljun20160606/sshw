@@ -49,6 +49,10 @@ func (c *conn) serve() {
 	}
 }
 
+func Setup() error {
+	return os.MkdirAll(SocketDir, 0755)
+}
+
 type Server struct {
 	// local socket path
 	SocketPath string
@@ -65,10 +69,9 @@ func NewServer() *Server {
 var retry int
 
 func (srv *Server) ListenAndServe() error {
-	if err := os.MkdirAll(SocketDir, 0755); err != nil {
+	if err := Setup(); err != nil {
 		return err
 	}
-
 	socketPath := srv.socketPath()
 	listener, err := net.Listen("unix", socketPath)
 	if err != nil {

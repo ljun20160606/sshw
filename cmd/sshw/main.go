@@ -90,11 +90,14 @@ func ExecNode(node *sshwctl.Node) error {
 		return sshwctl.ExecNode(node)
 	}
 	if !multiplex.IsRunning() {
-		path, err := exec.LookPath(os.Args[0])
-		if err != nil {
+		if err := multiplex.Setup(); err != nil {
 			return err
 		}
 		file, err := os.OpenFile(multiplex.SocketDir+"/sshw.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+		if err != nil {
+			return err
+		}
+		path, err := exec.LookPath(os.Args[0])
 		if err != nil {
 			return err
 		}
