@@ -57,8 +57,7 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 					return nil, err
 				}
 			} else {
-				// todo agent
-				b, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+				b, err := terminal.ReadPassword(int(node.stdin().(*os.File).Fd()))
 				if err != nil {
 					return nil, err
 				}

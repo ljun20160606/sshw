@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
+	"io"
 	"net"
 	"strings"
 	"sync"
@@ -23,9 +24,9 @@ const (
 
 type StdConn struct {
 	Num    int64
-	Stdin  net.Conn
-	Stdout net.Conn
-	Stderr net.Conn
+	Stdin  io.ReadCloser
+	Stdout io.WriteCloser
+	Stderr io.WriteCloser
 }
 
 // close all connection
@@ -100,20 +101,23 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 		m.Success(w, num)
 		return
 	}
-	// get std
+	// get fd
 	if strings.HasPrefix(req.Path, PathStd) {
 		var num int64
 		_ = json.Unmarshal(req.Body, &num)
-		store, _ := m.connMap.LoadOrStore(num, &StdConn{Num: num})
-		stdConn := store.(*StdConn)
-		n := w.Conn()
-		if strings.HasPrefix(req.Path, PathStdin) {
-			stdConn.Stdin = n
-		} else if strings.HasPrefix(req.Path, PathStdout) {
-			stdConn.Stdout = n
-		} else {
-			stdConn.Stderr = n
+		files, err := Get(w.Conn().(*net.UnixConn), 3, []string{PathStdin, PathStdout, PathStderr})
+		if err != nil {
+			m.Fail(w, err)
+			m.CloseConn(w)
+			return
 		}
+		m.connMap.Store(num, &StdConn{
+			Num:    num,
+			Stdin:  files[0],
+			Stdout: files[1],
+			Stderr: files[2],
+		})
+		m.Success(w, nil)
 		return
 	}
 	// load a client, and create session

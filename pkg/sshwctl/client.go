@@ -177,8 +177,7 @@ func (c *defaultClient) dial() (*ssh.Client, error) {
 		if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
 			c.node.Print(fmt.Sprintf("%s@%s's password:", c.clientConfig.User, c.node.Host))
 			var b []byte
-			// todo agent
-			b, err = terminal.ReadPassword(int(os.Stdin.Fd()))
+			b, err = terminal.ReadPassword(int(c.node.stdin().(*os.File).Fd()))
 			if err == nil {
 				p := string(b)
 				if p != "" {

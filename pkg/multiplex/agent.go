@@ -5,10 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
-	"io"
 	"net"
 	"os"
-	"sync"
 )
 
 func IsRunning() bool {
@@ -36,8 +34,9 @@ func ExecNode(node *sshwctl.Node) error {
 	if err != nil {
 		return err
 	}
-	errCh := agent.Forward(num)
-	defer close(errCh)
+	if err := agent.Forward(num); err != nil {
+		return err
+	}
 	if err := client.InitTerminal(); err != nil {
 		return err
 	}
@@ -66,15 +65,8 @@ func (c *Agent) GetNum() (int64, error) {
 }
 
 // forward stdout, stderr, stdin to master
-func (c *Agent) Forward(num int64) chan error {
-	errCh := make(chan error)
-	group := &sync.WaitGroup{}
-	group.Add(3)
-	go c.connOut(group, PathStdout, num, os.Stdout, errCh)
-	go c.connOut(group, PathStderr, num, os.Stderr, errCh)
-	go c.connIn(group, PathStdin, num, errCh)
-	group.Wait()
-	return errCh
+func (c *Agent) Forward(num int64) error {
+	return c.SendFd(num)
 }
 
 // open a new session
@@ -132,34 +124,24 @@ func (c *Agent) rpcGet(path string, result interface{}) error {
 	return json.Unmarshal(p.Data, result)
 }
 
-func (c *Agent) connOut(group *sync.WaitGroup, path string, num int64, writer io.Writer, errCh chan error) {
+func (c *Agent) SendFd(num int64) error {
 	conn, _ := net.Dial("unix", SocketPath)
 	w := NewJsonProtoWriter(conn)
 	bytes, _ := json.Marshal(num)
 	_ = w.Write(&Request{
-		Path: path,
+		Path: PathStd,
 		Body: bytes,
 	})
-	group.Done()
-	_, err := io.Copy(writer, conn)
-	select {
-	case errCh <- err:
-	default:
+	if err := Put(conn.(*net.UnixConn), os.Stdin, os.Stdout, os.Stderr); err != nil {
+		return err
 	}
-}
-
-func (c *Agent) connIn(group *sync.WaitGroup, path string, num int64, errCh chan error) {
-	conn, _ := net.Dial("unix", SocketPath)
-	w := NewJsonProtoWriter(conn)
-	bytes, _ := json.Marshal(num)
-	_ = w.Write(&Request{
-		Path: path,
-		Body: bytes,
-	})
-	group.Done()
-	_, err := io.Copy(conn, os.Stdin)
-	select {
-	case errCh <- err:
-	default:
+	r := NewJsonProtoReader(conn)
+	resp := new(Response)
+	_ = r.Read(resp)
+	p := &PlainResult{}
+	_ = json.Unmarshal(resp.Body, p)
+	if p.Code != 0 {
+		return errors.New(p.Message)
 	}
+	return nil
 }
