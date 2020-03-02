@@ -20,11 +20,15 @@ func IsRunning() bool {
 	return false
 }
 
+// remote
 func ExecNode(node *sshwctl.Node) error {
 	client := sshwctl.NewClient(node)
 	// local
 	if err := client.ExecsPre(); err != nil {
 		return err
+	}
+	if !client.CanConnect() {
+		return nil
 	}
 	// agent
 	agent := Agent{Node: node, Client: client}

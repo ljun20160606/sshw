@@ -37,10 +37,14 @@ var (
 	}
 )
 
+// local
 func ExecNode(node *Node) error {
 	client := NewClient(node)
 	if err := client.ExecsPre(); err != nil {
 		return err
+	}
+	if !client.CanConnect() {
+		return nil
 	}
 	if err := client.Connect(); err != nil {
 		return err
@@ -73,6 +77,7 @@ type Client interface {
 	// -----local
 	// run pre commands
 	ExecsPre() error
+	CanConnect() bool
 	// terminal makeRaw and store width height
 	InitTerminal() error
 	// run post commands
@@ -112,6 +117,10 @@ type defaultClient struct {
 	lifecycle    Lifecycle
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
+}
+
+func (c *defaultClient) CanConnect() bool {
+	return len(c.node.ExecsPre) == 0 || c.node.Host != ""
 }
 
 func (c *defaultClient) GetClient() *ssh.Client {
@@ -210,10 +219,6 @@ func (c *defaultClient) ExecsPre() error {
 }
 
 func (c *defaultClient) Connect() error {
-	if len(c.node.ExecsPre) != 0 && c.node.Host == "" {
-		return nil
-	}
-
 	client, err := c.Dial()
 	if err != nil {
 		return err
@@ -263,7 +268,7 @@ func (c *defaultClient) InitTerminal() error {
 
 func (c *defaultClient) Scp() error {
 	if c.client == nil {
-		return errors.New("must start client")
+		return errors.New("scp must start client")
 	}
 
 	for i := range c.node.Scps {
@@ -324,7 +329,7 @@ func (c *defaultClient) RecoverTerminal() {
 
 func (c *defaultClient) Shell() error {
 	if c.client == nil {
-		return errors.New("must start client")
+		return errors.New("shell must start client")
 	}
 
 	session, err := c.client.NewSession()

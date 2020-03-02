@@ -166,6 +166,9 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 func (m *MasterHandler) NewClient(node *sshwctl.Node) (sshwctl.Client, error) {
 	name := node.String()
 	newClient := sshwctl.NewClient(node)
+	if !newClient.CanConnect() {
+		return nil, errors.New("server: should run local")
+	}
 	if client, ok := m.GetClient(name); !ok {
 		// first auth may need people to solve
 		if err := newClient.Connect(); err != nil {
