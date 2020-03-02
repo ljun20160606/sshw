@@ -3,6 +3,7 @@ package sshwctl
 import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
+	"os"
 	"testing"
 )
 
@@ -153,6 +154,41 @@ func TestIsBookmark(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsBookmark(tt.args.n); got != tt.want {
 				t.Errorf("IsBookmark() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAbsPath(t *testing.T) {
+	wd, _ := os.Getwd()
+
+	type args struct {
+		p string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "relative",
+			args: args{
+				p: "./",
+			},
+			want: wd,
+		},
+		{
+			name: "blank",
+			args: args{
+				p: "",
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := AbsPath(tt.args.p); got != tt.want {
+				t.Errorf("AbsPath() = %v, want %v", got, tt.want)
 			}
 		})
 	}

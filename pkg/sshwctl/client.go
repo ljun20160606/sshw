@@ -403,7 +403,7 @@ func (c *defaultClient) scp(cp *NodeCp) error {
 	if err != nil {
 		return errors.New("Failed to create session: " + err.Error())
 	}
-	realfilePath := naiveRealpath(cp.Src)
+	realfilePath := cp.Src
 	f, err := os.Open(realfilePath)
 	if err != nil {
 		return err

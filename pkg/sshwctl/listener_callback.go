@@ -5,8 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/user"
-	"path"
 	"regexp"
 	"sync"
 	"time"
@@ -86,16 +84,8 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 	return nil
 }
 
-func naiveRealpath(p string) string {
-	if p[0] == '~' {
-		u, _ := user.Current()
-		return path.Join(u.HomeDir, p[2:])
-	}
-	return p
-}
-
 func copyFile(filePath, destinationPath string, stdin io.WriteCloser) error {
-	realfilePath := naiveRealpath(filePath)
+	realfilePath := filePath
 	f, err := os.Open(realfilePath)
 	if err != nil {
 		return err

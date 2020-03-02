@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"time"
@@ -146,7 +147,7 @@ type NodeCallbackShell struct {
 }
 
 type NodeCp struct {
-	Src string `yaml:"src"`
+	Src string `yaml:"src" sshw:"path"`
 	Tgt string `yaml:"tgt"`
 	// seconds
 	Timeout int64
@@ -198,7 +199,15 @@ func PrepareConfig(config interface{}) error {
 		if t.Kind() != reflect.String || !v.CanSet() {
 			return
 		}
+
 		r := ParseSshwTemplate(v.Interface().(string)).Execute()
+
+		if structField != nil {
+			switch tagSshw := structField.Tag.Get("sshw"); tagSshw {
+			case "path":
+				r = AbsPath(r)
+			}
+		}
 		v.Set(reflect.ValueOf(r))
 		return
 	})
@@ -209,7 +218,7 @@ func LoadYamlConfig(filename string) (string, []*Node, error) {
 	var err error
 	var pathname string
 	if filename != "" {
-		pathname = naiveRealpath(filename)
+		pathname = AbsPath(filename)
 		b, err = ioutil.ReadFile(pathname)
 	} else {
 		pathname, b, err = LoadConfigBytes(".sshw", ".sshw.yml", ".sshw.yaml")
@@ -225,6 +234,18 @@ func LoadYamlConfig(filename string) (string, []*Node, error) {
 	}
 
 	return pathname, c, nil
+}
+
+func AbsPath(p string) string {
+	if p == "" {
+		return ""
+	}
+	if p[0] == '~' {
+		u, _ := user.Current()
+		return path.Join(u.HomeDir, p[2:])
+	}
+	abs, _ := filepath.Abs(p)
+	return abs
 }
 
 func LoadSshConfig() ([]*Node, error) {
