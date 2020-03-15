@@ -20,8 +20,6 @@ type Lifecycle interface {
 
 	OnStderr(node *Node, line []byte) error
 
-	PostSessionWait(node *Node) error
-
 	Priority() int
 }
 
@@ -150,15 +148,6 @@ func (l *LifecycleComposite) OnStderr(node *Node, line []byte) error {
 	})
 }
 
-func (l *LifecycleComposite) PostSessionWait(node *Node) error {
-	return shortCircuitCycle(l.queue, func(lifecycle Lifecycle) error {
-		if err := lifecycle.PostSessionWait(node); err != nil {
-			return errors.Wrap(err, "Error at OnStderr")
-		}
-		return nil
-	})
-}
-
 // CommonLifecycle is used to build Lifecycle quickly
 type CommonLifecycle struct {
 	Name                     string
@@ -169,7 +158,6 @@ type CommonLifecycle struct {
 	PostShellFunc            func(node *Node, stdin io.WriteCloser) error
 	OnStdoutFunc             func(node *Node, line []byte) error
 	OnStderrFunc             func(node *Node, line []byte) error
-	PostSessionWaitFunc      func(node *Node) error
 }
 
 var _ Lifecycle = new(CommonLifecycle)
@@ -219,13 +207,6 @@ func (d *CommonLifecycle) OnStdout(node *Node, line []byte) error {
 func (d *CommonLifecycle) OnStderr(node *Node, line []byte) error {
 	if d.OnStderrFunc != nil {
 		return d.OnStderrFunc(node, line)
-	}
-	return nil
-}
-
-func (d *CommonLifecycle) PostSessionWait(node *Node) error {
-	if d.PostSessionWaitFunc != nil {
-		return d.PostSessionWaitFunc(node)
 	}
 	return nil
 }

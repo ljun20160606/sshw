@@ -87,7 +87,8 @@ func init() {
 
 func ExecNode(node *sshwctl.Node) error {
 	if node.ControlMaster != nil && !*node.ControlMaster {
-		return sshwctl.ExecNode(node)
+		client := sshwctl.NewClient(node)
+		return ExecClient(client, node)
 	}
 	if !multiplex.IsRunning() {
 		if err := multiplex.Setup(); err != nil {
@@ -112,15 +113,53 @@ func ExecNode(node *sshwctl.Node) error {
 	timeout := time.Now().Add(time.Second)
 	for {
 		if multiplex.IsRunning() {
-			return multiplex.ExecNode(node)
+			client := multiplex.NewClient(node)
+			return ExecClient(client, node)
 		}
 		if time.Now().Before(timeout) {
 			time.Sleep(30 * time.Millisecond)
 			continue
 		}
 		fmt.Println("can not run daemon server, exec directly")
-		return sshwctl.ExecNode(node)
+		client := sshwctl.NewClient(node)
+		return ExecClient(client, node)
 	}
+}
+
+// local
+func ExecClient(client sshwctl.Client, node *sshwctl.Node) error {
+	if err := client.ExecsPre(); err != nil {
+		return err
+	}
+	if !client.CanConnect() {
+		return nil
+	}
+	if err := client.Connect(); err != nil {
+		return err
+	}
+	defer func() {
+		_ = client.Close()
+	}()
+	if err := client.InitTerminal(); err != nil {
+		return err
+	}
+	client.WatchWindowChange(func(ch, cw int) error {
+		if node.Session != nil {
+			return node.Session.WindowChange(ch, cw)
+		}
+		return nil
+	})
+	if err := client.Scp(); err != nil {
+		return err
+	}
+	if err := client.Shell(); err != nil {
+		return err
+	}
+	client.RecoverTerminal()
+	if err := client.ExecsPost(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func main() {

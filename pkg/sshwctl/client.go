@@ -37,42 +37,6 @@ var (
 	}
 )
 
-// local
-func ExecNode(node *Node) error {
-	client := NewClient(node)
-	if err := client.ExecsPre(); err != nil {
-		return err
-	}
-	if !client.CanConnect() {
-		return nil
-	}
-	if err := client.Connect(); err != nil {
-		return err
-	}
-	defer func() {
-		_ = client.Close()
-	}()
-	if err := client.InitTerminal(); err != nil {
-		return err
-	}
-	client.WatchWindowChange(func(ch, cw int) error {
-		if node.Session != nil {
-			return node.Session.WindowChange(ch, cw)
-		}
-		return nil
-	})
-	if err := client.Scp(); err != nil {
-		return err
-	}
-	if err := client.Shell(); err != nil {
-		return err
-	}
-	if err := client.ExecsPost(); err != nil {
-		return err
-	}
-	return nil
-}
-
 type Client interface {
 	// -----local
 	// run pre commands
@@ -80,6 +44,7 @@ type Client interface {
 	CanConnect() bool
 	// terminal makeRaw and store width height
 	InitTerminal() error
+	RecoverTerminal()
 	// run post commands
 	ExecsPost() error
 	WatchWindowChange(windowChange func(ch, cw int) error)
@@ -254,8 +219,11 @@ func (c *defaultClient) Connect() error {
 func (c *defaultClient) InitTerminal() error {
 	fd := int(os.Stdin.Fd())
 	if state, err := terminal.MakeRaw(fd); err != nil {
+		return err
+	} else {
 		c.node.State = state
 	}
+
 	w, h, err := terminal.GetSize(fd)
 	if err != nil {
 		return err
@@ -387,9 +355,6 @@ func (c *defaultClient) Shell() error {
 	}()
 
 	_ = session.Wait()
-	if err := c.lifecycle.PostSessionWait(c.node); err != nil {
-		return err
-	}
 	return nil
 }
 

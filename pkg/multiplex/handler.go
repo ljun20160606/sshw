@@ -14,12 +14,12 @@ import (
 )
 
 const (
-	PathCreateConn = "createConn"
-	PathStd        = "std"
-	PathStdin      = "stdin"
-	PathStdout     = "stdout"
-	PathStderr     = "stderr"
-	PathSession    = "createSession"
+	PathStdin    = "stdin"
+	PathStdout   = "stdout"
+	PathStderr   = "stderr"
+	PathSession  = "session"
+	PathTerminal = PathSession + "/terminal"
+	PathScp      = PathSession + "/scp"
 )
 
 type StdConn struct {
@@ -49,8 +49,6 @@ type ChangeWindowRequest struct {
 
 // create a ssh session
 type ClientRequest struct {
-	// used to get a stdconn
-	Num int64
 	// ssh config
 	Node *sshwctl.Node
 }
@@ -66,10 +64,6 @@ type PlainResult struct {
 }
 
 type MasterHandler struct {
-	// conn autoincrement id
-	connNum int64
-	// { [num]: [StdConn] }
-	connMap sync.Map
 	// { [node.string]: [sshwClient] }
 	clientMap *TimerMap
 }
@@ -83,86 +77,70 @@ func NewMasterHandler() Handler {
 
 // show metric data
 func (m *MasterHandler) Metric() {
-	var num int
-	m.connMap.Range(func(key, value interface{}) bool {
-		num++
-		return true
-	})
 	fmt.Println("clientMap:", m.clientMap.Size())
-	fmt.Println("connMap: ", num)
+}
+
+func (m *MasterHandler) GetFd(w ResponseWriter) (*StdConn, error) {
+	files, err := Get(w.Conn().(*net.UnixConn), 3, []string{PathStdin, PathStdout, PathStderr})
+	if err != nil {
+		return nil, err
+	}
+	return &StdConn{
+		Stdin:  files[0],
+		Stdout: files[1],
+		Stderr: files[2],
+	}, nil
 }
 
 // serve a sshwctl request
 func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
-	// generate a stream num
-	if strings.HasPrefix(req.Path, PathCreateConn) {
-		defer m.CloseConn(w)
-		num := atomic.AddInt64(&m.connNum, 1)
-		m.Success(w, num)
-		return
-	}
-	// get fd
-	if strings.HasPrefix(req.Path, PathStd) {
-		var num int64
-		_ = json.Unmarshal(req.Body, &num)
-		files, err := Get(w.Conn().(*net.UnixConn), 3, []string{PathStdin, PathStdout, PathStderr})
+	// load a client, and create session
+	if strings.HasPrefix(req.Path, PathSession) {
+		parsedClientRequest := &ClientRequest{}
+		_ = json.Unmarshal(req.Body, parsedClientRequest)
+		node := parsedClientRequest.Node
+		stdConn, err := m.GetFd(w)
 		if err != nil {
 			m.Fail(w, err)
 			m.CloseConn(w)
 			return
 		}
-		m.connMap.Store(num, &StdConn{
-			Num:    num,
-			Stdin:  files[0],
-			Stdout: files[1],
-			Stderr: files[2],
-		})
-		m.Success(w, nil)
-		return
-	}
-	// load a client, and create session
-	if strings.HasPrefix(req.Path, PathSession) {
-		parsedClientRequest := &ClientRequest{}
-		_ = json.Unmarshal(req.Body, parsedClientRequest)
-		load, ok := m.connMap.Load(parsedClientRequest.Num)
-		if !ok {
-			m.Fail(w, errors.New(fmt.Sprintf("no suck num %v", parsedClientRequest.Num)))
-			m.CloseConn(w)
-			return
-		}
-		stdConn := load.(*StdConn)
-		node := parsedClientRequest.Node
 		node.Stdin = stdConn.Stdin
 		node.Stdout = stdConn.Stdout
 		node.Stderr = stdConn.Stderr
 
 		client, err := m.NewClient(node)
 		if err != nil {
-			defer m.CloseConn(w)
-			defer m.CloseStd(stdConn)
 			m.Fail(w, err)
+			m.CloseConn(w)
 			return
 		}
-		name := node.String()
-		m.clientMap.IncrRef(name)
-		// watch window change
-		go func() {
-			for {
-				window := &ChangeWindowRequest{}
-				if err := req.R.Read(window); err != nil {
-					return
-				}
-				if node.Session != nil {
-					if err := node.Session.WindowChange(window.Height, window.Width); err != nil {
+		if strings.HasPrefix(req.Path, PathScp) {
+			m.Process(w, stdConn, client.Scp)
+			return
+		}
+		if strings.HasPrefix(req.Path, PathTerminal) {
+			name := node.String()
+			m.clientMap.IncrRef(name)
+			// watch window change
+			go func() {
+				for {
+					window := &ChangeWindowRequest{}
+					if err := req.R.Read(window); err != nil {
 						return
 					}
+					if node.Session != nil {
+						if err := node.Session.WindowChange(window.Height, window.Width); err != nil {
+							return
+						}
+					}
 				}
-			}
-		}()
-		m.Process(w, stdConn, client.Scp, client.Shell)
-		m.clientMap.Done(name)
-		m.Metric()
-		return
+			}()
+			m.Process(w, stdConn, client.Shell)
+			m.clientMap.Done(name)
+			m.Metric()
+			return
+		}
 	}
 	m.CloseConn(w)
 }
@@ -212,23 +190,16 @@ func (m *MasterHandler) Process(w ResponseWriter, stdConn *StdConn, callables ..
 		if err := f(); err != nil {
 			m.Fail(w, err)
 			m.CloseConn(w)
-			m.CloseStd(stdConn)
 			return
 		}
 	}
+	m.Success(w, "ok")
 	m.CloseConn(w)
-	m.CloseStd(stdConn)
 }
 
 // close serve conn
 func (m *MasterHandler) CloseConn(w ResponseWriter) {
 	_ = w.Conn().Close()
-}
-
-// close sshwctl std conn
-func (m *MasterHandler) CloseStd(stdConn *StdConn) {
-	stdConn.Close()
-	m.connMap.Delete(stdConn.Num)
 }
 
 func (m *MasterHandler) Success(w ResponseWriter, data interface{}) {
