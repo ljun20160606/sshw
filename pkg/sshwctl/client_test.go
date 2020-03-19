@@ -1,6 +1,7 @@
 package sshwctl
 
 import (
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 )
@@ -27,5 +28,14 @@ func Test_execs(t *testing.T) {
 				t.Errorf("execs() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestAutoSSHAgent(t *testing.T) {
+	ast := assert.New(t)
+	if err := AutoSSHAgent(); err != nil {
+		ast.True(UserIdRsaIsNotExist())
+	} else {
+		ast.Nil(err)
 	}
 }

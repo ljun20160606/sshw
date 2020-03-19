@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
-	"os/user"
-	"path"
 )
 
 func init() {
@@ -19,14 +17,10 @@ type LifecyclePem struct {
 }
 
 func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
-	u, err := user.Current()
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
 	var pemBytes []byte
+	var err error
 	if node.KeyPath == "" {
-		pemBytes, err = ioutil.ReadFile(path.Join(u.HomeDir, ".ssh/id_rsa"))
+		pemBytes, err = ioutil.ReadFile(userIdRsa)
 	} else {
 		pemBytes, err = ioutil.ReadFile(node.KeyPath)
 	}

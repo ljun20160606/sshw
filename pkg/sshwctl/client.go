@@ -493,6 +493,30 @@ func (c *defaultClient) Close() error {
 	return c.client.Close()
 }
 
+var (
+	homeDir, _  = os.UserHomeDir()
+	dotSSHIdRsa = ".ssh/id_rsa"
+	userIdRsa   = path.Join(homeDir, dotSSHIdRsa)
+)
+
+func UserIdRsaIsNotExist() bool {
+	if _, err := os.Stat(userIdRsa); err != nil {
+		return os.IsNotExist(err)
+	}
+	return false
+}
+
+// auto ssh-add .ssh/id_rsa
+func AutoSSHAgent() error {
+	currentShell := shell()
+	command1 := exec.Command(currentShell, "-c", "ssh-add")
+	output, err := command1.Output()
+	if err != nil {
+		return errors.WithMessage(err, string(output))
+	}
+	return nil
+}
+
 func shell() string {
 	currentShell := os.Getenv("SHELL")
 	if currentShell == "" {

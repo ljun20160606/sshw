@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -86,6 +87,11 @@ func init() {
 }
 
 func ExecNode(node *sshwctl.Node) error {
+	if err := sshwctl.AutoSSHAgent(); err != nil {
+		if !sshwctl.UserIdRsaIsNotExist() {
+			return err
+		}
+	}
 	if node.ControlMaster != nil && !*node.ControlMaster {
 		client := sshwctl.NewClient(node)
 		return ExecClient(client, node)
@@ -94,15 +100,15 @@ func ExecNode(node *sshwctl.Node) error {
 		if err := multiplex.Setup(); err != nil {
 			return err
 		}
-		file, err := os.OpenFile(multiplex.SocketDir+"/sshw.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+		file, err := os.OpenFile(path.Join(multiplex.SocketDir, "sshw.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			return err
 		}
-		path, err := exec.LookPath(os.Args[0])
+		lookPath, err := exec.LookPath(os.Args[0])
 		if err != nil {
 			return err
 		}
-		cmd := exec.Command(path, "server")
+		cmd := exec.Command(lookPath, "server")
 		cmd.Stdout = file
 		cmd.Stderr = file
 		if err := cmd.Start(); err != nil {
