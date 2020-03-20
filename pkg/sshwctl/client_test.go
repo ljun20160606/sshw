@@ -39,3 +39,20 @@ func TestAutoSSHAgent(t *testing.T) {
 		ast.Nil(err)
 	}
 }
+
+func Test_execsVar(t *testing.T) {
+	ast := assert.New(t)
+	envName := "sshw_number"
+	nodes := []*NodeExec{
+		{
+			Cmd: "echo 1",
+			Var: envName,
+		},
+	}
+
+	_, err := execs(nodes, os.Stdin, os.Stdout)
+	ast.Nil(err)
+
+	envValue := os.Getenv(envName)
+	ast.Equal("1", envValue)
+}

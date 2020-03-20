@@ -550,7 +550,10 @@ func execs(execs []*NodeExec, stdin io.Reader, stdout io.Writer) (bool, error) {
 			return hasVar, err
 		}
 		if buffer != nil {
-			if err := os.Setenv(nodeExec.Var, buffer.String()); err != nil {
+			// output always contains '\n'
+			echo := buffer.String()
+			trimEcho := strings.TrimRight(echo, "\n")
+			if err := os.Setenv(nodeExec.Var, trimEcho); err != nil {
 				return hasVar, err
 			}
 		}
