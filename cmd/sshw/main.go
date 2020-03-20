@@ -86,6 +86,27 @@ func init() {
 	}
 }
 
+var (
+	SSHWLogPath = path.Join(multiplex.SocketDir, "sshw.log")
+	SSHWPidPath = path.Join(multiplex.SocketDir, "sshw.pid")
+)
+
+func PersistPid(pid int) {
+	_ = ioutil.WriteFile(SSHWPidPath, []byte(strconv.Itoa(pid)), 0755)
+}
+
+func ReadPid() (int, bool) {
+	file, err := ioutil.ReadFile(SSHWPidPath)
+	if err != nil {
+		return 0, false
+	}
+	pid, err := strconv.Atoi(string(file))
+	if err != nil {
+		return 0, false
+	}
+	return pid, true
+}
+
 func ExecNode(node *sshwctl.Node) error {
 	if err := sshwctl.AutoSSHAgent(); err != nil {
 		if !sshwctl.UserIdRsaIsNotExist() {
@@ -100,7 +121,7 @@ func ExecNode(node *sshwctl.Node) error {
 		if err := multiplex.Setup(); err != nil {
 			return err
 		}
-		file, err := os.OpenFile(path.Join(multiplex.SocketDir, "sshw.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
+		file, err := os.OpenFile(SSHWLogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0755)
 		if err != nil {
 			return err
 		}
@@ -108,13 +129,13 @@ func ExecNode(node *sshwctl.Node) error {
 		if err != nil {
 			return err
 		}
-		cmd := exec.Command(lookPath, "server")
+		cmd := exec.Command(lookPath, "server" , "start")
 		cmd.Stdout = file
 		cmd.Stderr = file
 		if err := cmd.Start(); err != nil {
 			return err
 		}
-		_ = ioutil.WriteFile(multiplex.SocketDir+"/sshw.pid", []byte(strconv.Itoa(cmd.Process.Pid)), 0755)
+		PersistPid(cmd.Process.Pid)
 	}
 	timeout := time.Now().Add(time.Second)
 	for {
@@ -132,7 +153,6 @@ func ExecNode(node *sshwctl.Node) error {
 	}
 }
 
-// local
 func ExecClient(client sshwctl.Client, node *sshwctl.Node) error {
 	if err := client.ExecsPre(); err != nil {
 		return err

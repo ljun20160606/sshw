@@ -24,10 +24,10 @@ var versionCmd = &cobra.Command{
 func showVersion() {
 	fmt.Println("sshw - ssh client wrapper for automatic login")
 	fmt.Println("version:", Version)
+	fmt.Println("\nIt's recommended to stop running sever after upgrade:\n\nsshw server stop")
 }
 
 var (
-	originalWD, _    = os.Getwd()
 	githubRepository = &sshwctl.GithubRepository{
 		Url:      "https://github.com",
 		Username: "ljun20160606",
@@ -71,27 +71,23 @@ var upgradeCmd = &cobra.Command{
 			return
 		}
 		defer binaryFile.Close()
-		path, err := exec.LookPath(os.Args[0])
+		lookPath, err := exec.LookPath(os.Args[0])
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("Exec path ", path)
+		fmt.Println("Exec path ", lookPath)
 		fmt.Println("Upgrade started")
 		binaryFile.Seek(0, 0)
-		if err := backupAndReplaceFile(path, binaryFile); err != nil {
+		if err := backupAndReplaceFile(lookPath, binaryFile); err != nil {
 			fmt.Println(err)
 			return
 		}
 		fmt.Println("Upgrade finished")
 
 		// exec: sshw -v to show new version
-		allFiles := append([]*os.File{os.Stdin, os.Stdout, os.Stderr})
-		_, err = os.StartProcess(path, []string{path, "-v"}, &os.ProcAttr{
-			Dir:   originalWD,
-			Files: allFiles,
-		})
-		if err != nil {
+		showVersionCmd := exec.Command(lookPath, "-v")
+		if err := showVersionCmd.Start(); err != nil {
 			fmt.Println(err)
 			return
 		}
