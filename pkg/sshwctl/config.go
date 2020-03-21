@@ -140,7 +140,6 @@ type NodeExec struct {
 
 type NodeCallbackShell struct {
 	Cmd          string        `yaml:"cmd"`
-	CpShell      NodeCp        `yaml:"cp,omitempty"`
 	Delay        time.Duration `yaml:"delay,omitempty"`
 	ErrorPattern string        `yaml:"error-pattern,omitempty"`
 	Wait         time.Duration `yaml:"wait,omitempty"`

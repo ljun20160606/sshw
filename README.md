@@ -133,17 +133,7 @@ When jumper does not support channel, and you has no permission to modify `/etc/
 
 # copy file
 
-Callback support cp file to remote from local, it will convert src file to hex, and echo to target path
-
-```yaml
-- name: dev server fully configured
-  user: appuser
-  host: 192.168.8.35
-  callback-shells:
-  - { cp: { src: '~/test.txt', tgt: '/tmp/test.txt' } }
-```
-
-Or by protocol ssh.
+Support cp file to remote from local like scp
 
 ```yaml
 - name: dev

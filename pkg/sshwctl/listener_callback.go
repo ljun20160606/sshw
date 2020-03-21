@@ -1,10 +1,7 @@
 package sshwctl
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
 	"regexp"
 	"sync"
 	"time"
@@ -61,15 +58,8 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 		shell := node.CallbackShells[i]
 		// delay
 		time.Sleep(shell.Delay * time.Millisecond)
-		// Copy Shell
-		if shell.CpShell.Src != "" {
-			if err := copyFile(shell.CpShell.Src, shell.CpShell.Tgt, stdin); err != nil {
-				return err
-			}
-		} else {
-			// Cmd Shell
-			_, _ = stdin.Write([]byte(shell.Cmd + "\r"))
-		}
+		// Cmd Shell
+		_, _ = stdin.Write([]byte(shell.Cmd + "\r"))
 
 		l.Mutex.Lock()
 		l.Index = i
@@ -82,34 +72,4 @@ func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
 		}
 	}
 	return nil
-}
-
-func copyFile(filePath, destinationPath string, stdin io.WriteCloser) error {
-	realfilePath := filePath
-	f, err := os.Open(realfilePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	info, _ := f.Stat()
-	perm := info.Mode().Perm()
-	bytes, _ := ioutil.ReadAll(f)
-	s := "echo -n -e '" + naiveHex(bytes) + "' > " + destinationPath +
-		" && " + fmt.Sprintf("chmod %#o %v ", perm, destinationPath) + "\r"
-	_, _ = stdin.Write([]byte(s))
-	return nil
-}
-
-const hextable = "0123456789abcdef"
-
-func naiveHex(src []byte) string {
-	dst := make([]byte, len(src)*4)
-	for i, v := range src {
-		dst[i*4] = '\\'
-		dst[i*4+1] = 'x'
-		dst[i*4+2] = hextable[v>>4]
-		dst[i*4+3] = hextable[v&0x0f]
-	}
-	return string(dst)
 }
