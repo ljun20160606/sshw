@@ -7,16 +7,11 @@ import (
 )
 
 func init() {
-	RegisterLifecycle(&CommonLifecycle{
-		Name:                     "auth_pem",
-		PostInitClientConfigFunc: new(LifecyclePem).PostInitClientConfig,
-	})
+	_ = bus.Subscribe(PostInitClientConfig, AuthPemPostInitClientConfig)
 }
 
-type LifecyclePem struct {
-}
-
-func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
+func AuthPemPostInitClientConfig(ctx *EventContext, clientConfig *ssh.ClientConfig) {
+	node := ctx.Node
 	var pemBytes []byte
 	var err error
 	if node.KeyPath == "" {
@@ -39,5 +34,4 @@ func (*LifecyclePem) PostInitClientConfig(node *Node, clientConfig *ssh.ClientCo
 			clientConfig.Auth = append(clientConfig.Auth, ssh.PublicKeys(signer))
 		}
 	}
-	return nil
 }

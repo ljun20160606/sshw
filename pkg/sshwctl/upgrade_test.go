@@ -16,7 +16,7 @@ var g = &GithubRepository{
 func TestAlphaVersion(t *testing.T) {
 	ast := assert.New(t)
 	versionAlpha, _ := version.NewVersion("v1.4.1-alpha")
-	versionRelease, _ :=version.NewVersion("v1.4.1")
+	versionRelease, _ := version.NewVersion("v1.4.1")
 	ast.True(versionAlpha.Compare(versionRelease) < 0)
 }
 

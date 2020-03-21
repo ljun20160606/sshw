@@ -1,32 +1,41 @@
 package sshwctl
 
 import (
+	"errors"
 	"io"
 	"regexp"
 	"sync"
 	"time"
 )
 
+const (
+	KeyCallback = "callback"
+)
+
 func init() {
-	mutex := new(sync.Mutex)
-	lifecycleCallback := &LifecycleCallback{
-		Mutex: mutex,
-	}
-	RegisterLifecycle(&CommonLifecycle{
-		Name:          "callback",
-		PostShellFunc: lifecycleCallback.PostShell,
-		OnStdoutFunc:  lifecycleCallback.OnStdout,
-	})
+	_ = bus.Subscribe(OnStdout, CallbackOnStdout)
+	_ = bus.Subscribe(PostShell, CallbackPostShell)
 }
 
-type LifecycleCallback struct {
+type CallbackInfo struct {
 	IsError bool
 	Index   int
 	Mutex   *sync.Mutex
-	Cond    *sync.Cond
 }
 
-func (l *LifecycleCallback) OnStdout(node *Node, line []byte) error {
+func NewCallbackInfo() *CallbackInfo {
+	mutex := new(sync.Mutex)
+	lifecycleCallback := &CallbackInfo{
+		Mutex: mutex,
+	}
+	return lifecycleCallback
+}
+
+func CallbackOnStdout(ctx *EventContext, line []byte) error {
+	node := ctx.Node
+	callback, _ := ctx.Get(KeyCallback)
+	l := callback.(*CallbackInfo)
+
 	l.Mutex.Lock()
 	defer l.Mutex.Unlock()
 	if len(node.CallbackShells) == 0 || l.Index == len(node.CallbackShells)-1 {
@@ -47,12 +56,16 @@ func (l *LifecycleCallback) OnStdout(node *Node, line []byte) error {
 	return nil
 }
 
-func (l *LifecycleCallback) PostShell(node *Node, stdin io.WriteCloser) error {
+func CallbackPostShell(ctx *EventContext, stdin io.WriteCloser) error {
+	node := ctx.Node
+	callback, _ := ctx.Get(KeyCallback)
+	l := callback.(*CallbackInfo)
+
 	for i := range node.CallbackShells {
 		l.Mutex.Lock()
 		if l.IsError {
 			l.Mutex.Unlock()
-			return ErrorInterrupt
+			return errors.New("interrupt")
 		}
 		l.Mutex.Unlock()
 		shell := node.CallbackShells[i]

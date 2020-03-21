@@ -10,14 +10,16 @@ require (
 	github.com/gordonklaus/ineffassign v0.0.0-20190601041439-ed7b1b5ee0f8 // indirect
 	github.com/hashicorp/go-version v1.2.0
 	github.com/kevinburke/ssh_config v0.0.0-20190630040420-2e50c441276c
+	github.com/ljun20160606/eventbus v0.0.0-20200321135348-acd5434c3c93
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/magefile/mage v1.8.0
 	github.com/manifoldco/promptui v0.3.2
 	github.com/mattn/go-colorable v0.1.2 // indirect
+	github.com/nicksnyder/go-i18n v1.10.1 // indirect
 	github.com/pelletier/go-buffruneio v0.2.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/cobra v0.0.5
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/lint v0.0.0-20190409202823-959b441ac422 // indirect
 	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 // indirect

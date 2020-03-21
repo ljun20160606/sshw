@@ -129,7 +129,7 @@ func ExecNode(node *sshwctl.Node) error {
 		if err != nil {
 			return err
 		}
-		cmd := exec.Command(lookPath, "server" , "start")
+		cmd := exec.Command(lookPath, "server", "start")
 		cmd.Stdout = file
 		cmd.Stderr = file
 		if err := cmd.Start(); err != nil {

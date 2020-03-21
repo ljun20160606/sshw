@@ -2,6 +2,7 @@ package sshwctl
 
 import (
 	"bufio"
+	"github.com/ljun20160606/eventbus"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"math"
@@ -9,30 +10,20 @@ import (
 )
 
 func init() {
-	lifecycleIO := new(LifecycleIO)
-	RegisterLifecycle(&CommonLifecycle{
-		Name:         "io",
-		PriorityFunc: lifecycleIO.Priority,
-		OnStdoutFunc: lifecycleIO.OnStdout,
-		OnStderrFunc: lifecycleIO.OnStderr,
-	})
+	_ = bus.Subscribe(OnStdout, IOOnStdout, eventbus.WithOrder(math.MinInt32))
+	_ = bus.Subscribe(OnStderr, IOOnStderr, eventbus.WithOrder(math.MinInt32))
 }
 
-type LifecycleIO struct {
-}
-
-func (*LifecycleIO) OnStdout(node *Node, bytes []byte) error {
+func IOOnStdout(ctx *EventContext, bytes []byte) error {
+	node := ctx.Node
 	_, err := node.stdout().Write(bytes)
 	return err
 }
 
-func (*LifecycleIO) OnStderr(node *Node, bytes []byte) error {
+func IOOnStderr(ctx *EventContext, bytes []byte) error {
+	node := ctx.Node
 	_, err := node.stderr().Write(bytes)
 	return err
-}
-
-func (*LifecycleIO) Priority() int {
-	return math.MinInt32
 }
 
 func readLine(node *Node, session *ssh.Session, getReader func() (io.Reader, error), lineSolver func(line []byte) error) error {

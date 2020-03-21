@@ -12,18 +12,13 @@ import (
 )
 
 func init() {
-	RegisterLifecycle(&CommonLifecycle{
-		Name:                     "auth_password",
-		PostInitClientConfigFunc: new(LifecyclePassword).PostInitClientConfig,
-	})
-}
-
-type LifecyclePassword struct {
+	_ = bus.Subscribe(PostInitClientConfig, AuthPwdPostInitClientConfig)
 }
 
 // if set password, auto auth password
 // if set KeyboardInteractions, match question and then auto auth interaction
-func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
+func AuthPwdPostInitClientConfig(ctx *EventContext, clientConfig *ssh.ClientConfig) {
+	node := ctx.Node
 	password := node.password()
 
 	if password != nil {
@@ -67,5 +62,4 @@ func (*LifecyclePassword) PostInitClientConfig(node *Node, clientConfig *ssh.Cli
 		}
 		return answers, nil
 	}))
-	return nil
 }

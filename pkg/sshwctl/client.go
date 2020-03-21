@@ -79,7 +79,7 @@ type localClient struct {
 	node         *Node
 	agent        agent.Agent
 	client       *ssh.Client
-	lifecycle    Lifecycle
+	eventContext *EventContext
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
 }
@@ -103,8 +103,9 @@ func newClient(node *Node) *localClient {
 		Timeout:         time.Second * 10,
 	}
 
-	lifeCycleComposite := NewLifeCycleComposite()
-	if err := lifeCycleComposite.PostInitClientConfig(node, config); err != nil {
+	eventContext := NewEventContext(node)
+
+	if err := bus.Publish(PostInitClientConfig, eventContext, config); err != nil {
 		node.Error(err)
 	}
 
@@ -113,7 +114,7 @@ func newClient(node *Node) *localClient {
 
 	return &localClient{
 		clientConfig: config,
-		lifecycle:    lifeCycleComposite,
+		eventContext: eventContext,
 		node:         node,
 	}
 }
@@ -192,7 +193,7 @@ func (c *localClient) Connect() error {
 
 	c.node.Println(fmt.Sprintf("connect server ssh -p %d %s@%s version: %s\n", c.node.port(), c.node.user(), c.node.Host, string(client.ServerVersion())))
 
-	if err := c.lifecycle.PostSSHDial(c.node, c.client); err != nil {
+	if err := bus.Publish(PostSSHDial, c.eventContext, c.client); err != nil {
 		return err
 	}
 
@@ -313,7 +314,7 @@ func (c *localClient) Shell() error {
 		return err
 	}
 
-	if err := c.lifecycle.PostNewSession(c.node, session); err != nil {
+	if err := bus.Publish(PostNewSession, c.eventContext, session); err != nil {
 		return err
 	}
 
@@ -323,16 +324,19 @@ func (c *localClient) Shell() error {
 		return err
 	}
 
+	l := NewCallbackInfo()
+	c.eventContext.Put(KeyCallback, l)
+
 	// stdout
 	if err := readLine(c.node, session, session.StdoutPipe, func(line []byte) error {
-		return c.lifecycle.OnStdout(c.node, line)
+		return bus.Publish(OnStdout, c.eventContext, line)
 	}); err != nil {
 		return errors.Wrap(err, "stdout")
 	}
 
 	// stderr
 	if err := readLine(c.node, session, session.StderrPipe, func(line []byte) error {
-		return c.lifecycle.OnStderr(c.node, line)
+		return bus.Publish(OnStderr, c.eventContext, line)
 	}); err != nil {
 		return errors.Wrap(err, "stderr")
 	}
@@ -342,7 +346,7 @@ func (c *localClient) Shell() error {
 		return err
 	}
 
-	if err := c.lifecycle.PostShell(c.node, stdinPipe); err != nil {
+	if err := bus.Publish(PostShell, c.eventContext, stdinPipe); err != nil {
 		return err
 	}
 

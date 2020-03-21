@@ -1,6 +1,7 @@
 package sshwctl
 
 import (
+	"github.com/ljun20160606/eventbus"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"math"
@@ -9,49 +10,39 @@ import (
 	"strings"
 )
 
+const (
+	KeyAgent = "agent"
+)
+
 func init() {
-	lifecycleAgent := new(LifecycleAgent)
-	RegisterLifecycle(&CommonLifecycle{
-		Name:                     "agent",
-		PriorityFunc:             lifecycleAgent.Priority,
-		PostInitClientConfigFunc: lifecycleAgent.PostInitClientConfig,
-		PostSSHDialFunc:          lifecycleAgent.PostSSHDial,
-		PostNewSessionFunc:       lifecycleAgent.PostNewSession,
-	})
+	_ = bus.Subscribe(PostInitClientConfig, AgentPostInitClientConfig, eventbus.WithOrder(math.MaxInt32))
+	_ = bus.Subscribe(PostSSHDial, AgentPostSSHDial, eventbus.WithOrder(math.MaxInt32))
+	_ = bus.Subscribe(PostNewSession, AgentPostNewSession, eventbus.WithOrder(math.MaxInt32))
 }
 
-type LifecycleAgent struct {
-	agent agent.Agent
-}
-
-func (l *LifecycleAgent) Priority() int {
-	return math.MaxInt32
-}
-
-func (l *LifecycleAgent) PostInitClientConfig(node *Node, clientConfig *ssh.ClientConfig) error {
+func AgentPostInitClientConfig(ctx *EventContext, clientConfig *ssh.ClientConfig) {
 	if sshAgent, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK")); err == nil {
 		client := agent.NewClient(sshAgent)
 		agentAuthMethod := ssh.PublicKeysCallback(client.Signers)
 
 		clientConfig.Auth = append(clientConfig.Auth, agentAuthMethod)
-		l.agent = client
+		ctx.Put(KeyAgent, client)
 	}
-
-	return nil
 }
 
-func (l *LifecycleAgent) PostSSHDial(node *Node, client *ssh.Client) error {
-	if l.agent != nil {
-		if err := agent.ForwardToAgent(client, l.agent); err != nil {
+func AgentPostSSHDial(ctx *EventContext, client *ssh.Client) error {
+	if c, has := ctx.Get(KeyAgent); has {
+		if err := agent.ForwardToAgent(client, c.(agent.Agent)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (l *LifecycleAgent) PostNewSession(node *Node, session *ssh.Session) error {
-	if l.agent != nil {
-		if err := agent.RequestAgentForwarding(session); err != nil && !strings.Contains(err.Error(), "forwarding request denied") {
+func AgentPostNewSession(ctx *EventContext, session *ssh.Session) error {
+	if _, has := ctx.Get(KeyAgent); has {
+		if err := agent.RequestAgentForwarding(session); err != nil &&
+			!strings.Contains(err.Error(), "forwarding request denied") {
 			return err
 		}
 	}

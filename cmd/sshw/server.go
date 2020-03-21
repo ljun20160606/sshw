@@ -32,7 +32,7 @@ var serverStartCmd = &cobra.Command{
 	},
 }
 
-func getProcess() *os.Process{
+func getProcess() *os.Process {
 	pid, has := ReadPid()
 	if !has {
 		fmt.Println("no pid in " + SSHWPidPath)
