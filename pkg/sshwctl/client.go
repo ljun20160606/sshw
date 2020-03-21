@@ -62,7 +62,7 @@ type Client interface {
 	Ping() error
 }
 
-func (c *defaultClient) Ping() error {
+func (c *localClient) Ping() error {
 	if c.client == nil {
 		return errors.New("need init ssh.client")
 	}
@@ -74,7 +74,7 @@ func NewClient(node *Node) Client {
 	return newClient(node)
 }
 
-type defaultClient struct {
+type localClient struct {
 	clientConfig *ssh.ClientConfig
 	node         *Node
 	agent        agent.Agent
@@ -84,19 +84,19 @@ type defaultClient struct {
 	cancelFunc   context.CancelFunc
 }
 
-func (c *defaultClient) CanConnect() bool {
+func (c *localClient) CanConnect() bool {
 	return len(c.node.ExecsPre) == 0 || c.node.Host != ""
 }
 
-func (c *defaultClient) GetClient() *ssh.Client {
+func (c *localClient) GetClient() *ssh.Client {
 	return c.client
 }
 
-func (c *defaultClient) SetClient(client *ssh.Client) {
+func (c *localClient) SetClient(client *ssh.Client) {
 	c.client = client
 }
 
-func newClient(node *Node) *defaultClient {
+func newClient(node *Node) *localClient {
 	config := &ssh.ClientConfig{
 		User:            node.user(),
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
@@ -111,14 +111,14 @@ func newClient(node *Node) *defaultClient {
 	config.SetDefaults()
 	config.Ciphers = append(config.Ciphers, DefaultCiphers...)
 
-	return &defaultClient{
+	return &localClient{
 		clientConfig: config,
 		lifecycle:    lifeCycleComposite,
 		node:         node,
 	}
 }
 
-func (c *defaultClient) Dial() (*ssh.Client, error) {
+func (c *localClient) Dial() (*ssh.Client, error) {
 	jumpNodes := c.node.Jump
 
 	if len(jumpNodes) > 0 {
@@ -134,7 +134,7 @@ func (c *defaultClient) Dial() (*ssh.Client, error) {
 	return c.dial()
 }
 
-func (c *defaultClient) dial() (*ssh.Client, error) {
+func (c *localClient) dial() (*ssh.Client, error) {
 	client, err := ssh.Dial("tcp", c.node.addr(), c.clientConfig)
 	if err != nil {
 		msg := err.Error()
@@ -157,7 +157,7 @@ func (c *defaultClient) dial() (*ssh.Client, error) {
 	return client, nil
 }
 
-func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
+func (c *localClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 	addr := c.node.addr()
 	conn, err := client.Dial("tcp", addr)
 	if err != nil {
@@ -171,7 +171,7 @@ func (c *defaultClient) dialByChannel(client *ssh.Client) (*ssh.Client, error) {
 	return client, nil
 }
 
-func (c *defaultClient) ExecsPre() error {
+func (c *localClient) ExecsPre() error {
 	if hasVar, err := execs(c.node.ExecsPre, c.node.stdin(), c.node.stdout()); err != nil {
 		return err
 	} else if hasVar {
@@ -182,7 +182,7 @@ func (c *defaultClient) ExecsPre() error {
 	return nil
 }
 
-func (c *defaultClient) Connect() error {
+func (c *localClient) Connect() error {
 	client, err := c.Dial()
 	if err != nil {
 		return err
@@ -216,7 +216,7 @@ func (c *defaultClient) Connect() error {
 	return nil
 }
 
-func (c *defaultClient) InitTerminal() error {
+func (c *localClient) InitTerminal() error {
 	fd := int(os.Stdin.Fd())
 	if state, err := terminal.MakeRaw(fd); err != nil {
 		return err
@@ -233,7 +233,7 @@ func (c *defaultClient) InitTerminal() error {
 	return nil
 }
 
-func (c *defaultClient) Scp() error {
+func (c *localClient) Scp() error {
 	if c.client == nil {
 		return errors.New("scp must start client")
 	}
@@ -248,7 +248,7 @@ func (c *defaultClient) Scp() error {
 }
 
 // send terminal request in session
-func (c *defaultClient) xterm(session *ssh.Session) error {
+func (c *localClient) xterm(session *ssh.Session) error {
 	modes := ssh.TerminalModes{
 		ssh.ECHO:          1,
 		ssh.TTY_OP_ISPEED: 14400,
@@ -260,11 +260,11 @@ func (c *defaultClient) xterm(session *ssh.Session) error {
 	return nil
 }
 
-func (c *defaultClient) ChangeWindow(session *ssh.Session, ch, cw int) error {
+func (c *localClient) ChangeWindow(session *ssh.Session, ch, cw int) error {
 	return session.WindowChange(ch, cw)
 }
 
-func (c *defaultClient) WatchWindowChange(windowChange func(ch, cw int) error) {
+func (c *localClient) WatchWindowChange(windowChange func(ch, cw int) error) {
 	go func() {
 		// interval get terminal size
 		// fix resize issue
@@ -290,11 +290,11 @@ func (c *defaultClient) WatchWindowChange(windowChange func(ch, cw int) error) {
 	}()
 }
 
-func (c *defaultClient) RecoverTerminal() {
+func (c *localClient) RecoverTerminal() {
 	_ = terminal.Restore(int(os.Stdin.Fd()), c.node.State)
 }
 
-func (c *defaultClient) Shell() error {
+func (c *localClient) Shell() error {
 	if c.client == nil {
 		return errors.New("shell must start client")
 	}
@@ -358,7 +358,7 @@ func (c *defaultClient) Shell() error {
 	return nil
 }
 
-func (c *defaultClient) ExecsPost() error {
+func (c *localClient) ExecsPost() error {
 	if _, err := execs(c.node.ExecsStop, c.node.stdin(), c.node.stdout()); err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func (c *defaultClient) ExecsPost() error {
 
 // like shell scp
 // cp local file into server
-func (c *defaultClient) scp(cp *NodeCp) error {
+func (c *localClient) scp(cp *NodeCp) error {
 	session, err := c.client.NewSession()
 	if err != nil {
 		return errors.New("Failed to create session: " + err.Error())
@@ -483,7 +483,7 @@ func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 	}
 }
 
-func (c *defaultClient) Close() error {
+func (c *localClient) Close() error {
 	if c.client == nil {
 		return nil
 	}

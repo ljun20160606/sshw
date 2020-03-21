@@ -29,19 +29,6 @@ type StdConn struct {
 	Stderr io.WriteCloser
 }
 
-// close all connection
-func (s *StdConn) Close() {
-	if s.Stdin != nil {
-		_ = s.Stdin.Close()
-	}
-	if s.Stdout != nil {
-		_ = s.Stdout.Close()
-	}
-	if s.Stderr != nil {
-		_ = s.Stderr.Close()
-	}
-}
-
 type ChangeWindowRequest struct {
 	Width  int
 	Height int

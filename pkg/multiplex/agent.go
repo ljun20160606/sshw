@@ -18,48 +18,48 @@ func IsRunning() bool {
 	return false
 }
 
-type MasterClient struct {
+type masterClient struct {
 	LocalClient sshwctl.Client
 	Node        *sshwctl.Node
 }
 
 func NewClient(node *sshwctl.Node) sshwctl.Client {
 	client := sshwctl.NewClient(node)
-	return &MasterClient{
+	return &masterClient{
 		LocalClient: client,
 		Node:        node,
 	}
 }
 
-func (m *MasterClient) ExecsPre() error {
+func (m *masterClient) ExecsPre() error {
 	return m.LocalClient.ExecsPre()
 }
 
-func (m *MasterClient) CanConnect() bool {
+func (m *masterClient) CanConnect() bool {
 	return m.LocalClient.CanConnect()
 }
 
-func (m *MasterClient) InitTerminal() error {
+func (m *masterClient) InitTerminal() error {
 	return m.LocalClient.InitTerminal()
 }
 
-func (m *MasterClient) RecoverTerminal() {
+func (m *masterClient) RecoverTerminal() {
 	m.LocalClient.RecoverTerminal()
 }
 
-func (m *MasterClient) ExecsPost() error {
+func (m *masterClient) ExecsPost() error {
 	return m.LocalClient.ExecsPost()
 }
 
-func (m *MasterClient) WatchWindowChange(windowChange func(ch, cw int) error) {
+func (m *masterClient) WatchWindowChange(windowChange func(ch, cw int) error) {
 	return
 }
 
-func (m *MasterClient) Connect() error {
+func (m *masterClient) Connect() error {
 	return nil
 }
 
-func (m *MasterClient) Scp() error {
+func (m *masterClient) Scp() error {
 	conn, _ := net.Dial("unix", SocketPath)
 	writer := NewJsonProtoWriter(conn)
 	clientReq := &ClientRequest{
@@ -87,7 +87,7 @@ func (m *MasterClient) Scp() error {
 	return nil
 }
 
-func (m *MasterClient) Shell() error {
+func (m *masterClient) Shell() error {
 	conn, _ := net.Dial("unix", SocketPath)
 	writer := NewJsonProtoWriter(conn)
 	clientReq := &ClientRequest{
@@ -127,18 +127,18 @@ func (m *MasterClient) Shell() error {
 	return nil
 }
 
-func (m *MasterClient) Close() error {
+func (m *masterClient) Close() error {
 	return nil
 }
 
-func (m *MasterClient) GetClient() *ssh.Client {
+func (m *masterClient) GetClient() *ssh.Client {
 	panic("implement me")
 }
 
-func (m *MasterClient) SetClient(client *ssh.Client) {
+func (m *masterClient) SetClient(client *ssh.Client) {
 	panic("implement me")
 }
 
-func (m *MasterClient) Ping() error {
+func (m *masterClient) Ping() error {
 	panic("implement me")
 }
