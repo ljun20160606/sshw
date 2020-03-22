@@ -87,6 +87,9 @@ var upgradeCmd = &cobra.Command{
 
 		// exec: sshw -v to show new version
 		showVersionCmd := exec.Command(lookPath, "-v")
+		showVersionCmd.Stdin = os.Stdin
+		showVersionCmd.Stdout = os.Stdout
+		showVersionCmd.Stderr = os.Stderr
 		if err := showVersionCmd.Start(); err != nil {
 			fmt.Println(err)
 			return
