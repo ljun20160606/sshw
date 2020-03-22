@@ -1,6 +1,7 @@
 package sshwctl
 
 import (
+	"bytes"
 	"fmt"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
@@ -226,13 +227,47 @@ func LoadYamlConfig(filename string) (string, []*Node, error) {
 	if err != nil {
 		return pathname, nil, err
 	}
-	var c []*Node
-	err = yaml.Unmarshal(b, &c)
-	if err != nil {
-		return pathname, nil, err
-	}
 
-	return pathname, c, nil
+	nodes, err := LoadConfig(b)
+	return pathname, nodes, err
+}
+
+func LoadConfig(bs []byte) ([]*Node, error) {
+	var result []*Node
+
+	reader1 := bytes.NewReader(bs)
+	reader2 := bytes.NewReader(bs)
+	{
+		var e error
+		decoder1 := yaml.NewDecoder(reader1)
+		decoder2 := yaml.NewDecoder(reader2)
+		for {
+			n := new(Node)
+			if err := decoder1.Decode(n); err != nil {
+				if err == io.EOF {
+					return result, nil
+				}
+				e = err
+			} else {
+				if n.Name == "" {
+					continue
+				}
+				result = append(result, n)
+			}
+
+			var nodes []*Node
+			if err := decoder2.Decode(&nodes); err != nil {
+				if err == io.EOF {
+					return result, nil
+				}
+				if e != nil {
+					return result, e
+				}
+			} else {
+				result = append(result, nodes...)
+			}
+		}
+	}
 }
 
 func AbsPath(p string) string {

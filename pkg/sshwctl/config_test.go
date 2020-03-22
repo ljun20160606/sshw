@@ -193,3 +193,23 @@ func TestAbsPath(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfig(t *testing.T) {
+	ast := assert.New(t)
+
+	config, err := LoadConfig([]byte(`
+name: foo
+---
+name: bar
+---
+- name: zoo
+`))
+	ast.Nil(err)
+	ast.Len(config, 3)
+	ast.Equal(config[0].Name, "foo")
+	ast.Equal(config[1].Name, "bar")
+	ast.Equal(config[2].Name, "zoo")
+
+	_, err = LoadConfig([]byte(`"`))
+	ast.NotNil(err)
+}
