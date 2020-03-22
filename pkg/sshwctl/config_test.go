@@ -4,6 +4,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
 	"os"
+	"os/user"
 	"testing"
 )
 
@@ -161,6 +162,7 @@ func TestIsBookmark(t *testing.T) {
 
 func TestAbsPath(t *testing.T) {
 	wd, _ := os.Getwd()
+	current, _ := user.Current()
 
 	type args struct {
 		p string
@@ -171,6 +173,13 @@ func TestAbsPath(t *testing.T) {
 		want string
 	}{
 		{
+			name: "blank",
+			args: args{
+				p: "",
+			},
+			want: "",
+		},
+		{
 			name: "relative",
 			args: args{
 				p: "./",
@@ -178,11 +187,18 @@ func TestAbsPath(t *testing.T) {
 			want: wd,
 		},
 		{
-			name: "blank",
+			name: "home",
 			args: args{
-				p: "",
+				p: "~",
 			},
-			want: "",
+			want: current.HomeDir,
+		},
+		{
+			name: "wild pattern",
+			args: args{
+				p: "./config_test.*",
+			},
+			want: wd + "/config_test.go",
 		},
 	}
 	for _, tt := range tests {

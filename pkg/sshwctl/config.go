@@ -270,13 +270,20 @@ func LoadConfig(bs []byte) ([]*Node, error) {
 	}
 }
 
-func AbsPath(p string) string {
+// AbsPath returns absolute path and match wild path
+// if match multiple path, return first
+func AbsPath(input string) string {
+	p := input
 	if p == "" {
 		return ""
 	}
 	if p[0] == '~' {
 		u, _ := user.Current()
-		return path.Join(u.HomeDir, p[2:])
+		p = path.Join(u.HomeDir, p[1:])
+	}
+	matches, _ := filepath.Glob(p)
+	if len(matches) != 0 {
+		p = matches[0]
 	}
 	abs, _ := filepath.Abs(p)
 	return abs
