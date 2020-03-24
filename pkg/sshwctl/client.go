@@ -513,10 +513,22 @@ func UserIdRsaIsNotExist() bool {
 // auto ssh-add .ssh/id_rsa
 func AutoSSHAgent() error {
 	currentShell := shell()
-	command1 := exec.Command(currentShell, "-c", "ssh-add")
-	output, err := command1.Output()
+	showListCmd := exec.Command(currentShell, "-c", "ssh-add -l")
+	showOut, err := showListCmd.Output()
+	// stop if ssh-add fail
 	if err != nil {
-		return errors.WithMessage(err, string(output))
+		s := string(showOut)
+		// if contains below message, means ssh-add is empty
+		if !strings.Contains(s, "The agent has no identities") {
+			return errors.WithMessage(err, s)
+		}
+	}
+	if !bytes.Contains(showOut, []byte(dotSSHIdRsa)) {
+		addCmd := exec.Command(currentShell, "-c", "ssh-add")
+		addCmd.Stdout = os.Stdout
+		addCmd.Stdin = os.Stdin
+		addCmd.Stderr = os.Stderr
+		_ = addCmd.Run()
 	}
 	return nil
 }

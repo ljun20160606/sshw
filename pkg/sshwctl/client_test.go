@@ -34,7 +34,9 @@ func Test_execs(t *testing.T) {
 func TestAutoSSHAgent(t *testing.T) {
 	ast := assert.New(t)
 	if err := AutoSSHAgent(); err != nil {
-		ast.True(UserIdRsaIsNotExist())
+		if !UserIdRsaIsNotExist() {
+			ast.Nil(err)
+		}
 	} else {
 		ast.Nil(err)
 	}
