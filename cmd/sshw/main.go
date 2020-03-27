@@ -28,6 +28,7 @@ var (
 
 var (
 	rootCmd = &cobra.Command{
+		Use: "sshw",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return nil
 		},

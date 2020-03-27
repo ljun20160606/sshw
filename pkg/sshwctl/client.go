@@ -512,7 +512,7 @@ func UserIdRsaIsNotExist() bool {
 
 // auto ssh-add .ssh/id_rsa
 func AutoSSHAgent() error {
-	currentShell := shell()
+	currentShell := Shell()
 	showListCmd := exec.Command(currentShell, "-c", "ssh-add -l")
 	showOut, err := showListCmd.Output()
 	// stop if ssh-add fail
@@ -533,7 +533,8 @@ func AutoSSHAgent() error {
 	return nil
 }
 
-func shell() string {
+func Shell() string {
+
 	currentShell := os.Getenv("SHELL")
 	if currentShell == "" {
 		return "/bin/sh"
@@ -546,7 +547,7 @@ func shell() string {
 // if has var return true
 func execs(execs []*NodeExec, stdin io.Reader, stdout io.Writer) (bool, error) {
 	var hasVar bool
-	currentShell := shell()
+	currentShell := Shell()
 	for i := range execs {
 		nodeExec := execs[i]
 		cmdStr := nodeExec.Cmd
