@@ -11,6 +11,7 @@ import (
 
 func init() {
 	rootCmd.AddCommand(latestCmd, upgradeCmd, versionCmd)
+	versionCmd.AddCommand(versionNewCmd)
 }
 
 var versionCmd = &cobra.Command{
@@ -19,12 +20,6 @@ var versionCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		showVersion()
 	},
-}
-
-func showVersion() {
-	fmt.Println("sshw - ssh client wrapper for automatic login")
-	fmt.Println("version:", Version)
-	fmt.Println("\nIt's recommended to stop running sever after upgrade:\n\nsshw server stop")
 }
 
 var (
@@ -86,7 +81,7 @@ var upgradeCmd = &cobra.Command{
 		fmt.Println("Upgrade finished")
 
 		// exec: sshw -v to show new version
-		showVersionCmd := exec.Command(lookPath, "-v")
+		showVersionCmd := exec.Command(lookPath, "version", "new")
 		showVersionCmd.Stdin = os.Stdin
 		showVersionCmd.Stdout = os.Stdout
 		showVersionCmd.Stderr = os.Stderr
@@ -108,5 +103,20 @@ var latestCmd = &cobra.Command{
 		}
 		showVersion()
 		fmt.Println("latest version:", versionMeta.Version)
+	},
+}
+
+func showVersion() {
+	fmt.Println("sshw - ssh client wrapper for automatic login")
+	fmt.Println("version:", Version)
+}
+
+var versionNewCmd = &cobra.Command{
+	Use:    "new",
+	Short:  "Show version new",
+	Run: func(cmd *cobra.Command, args []string) {
+		showVersion()
+		fmt.Println("It's recommended to stop running sever after upgrade:\n    sshw server stop")
+		fmt.Println("Get completion:\n    sshw completion")
 	},
 }
