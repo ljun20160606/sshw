@@ -6,6 +6,7 @@ import (
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	"net/url"
 )
 
 func init() {
@@ -18,6 +19,10 @@ var mergeCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
+		if _, err := url.ParseRequestURI(filename); err == nil {
+			fmt.Println("Can not merge config to remote config.")
+			return
+		}
 		pathname, dstNodes, err := sshwctl.LoadYamlConfig(filename)
 		if err != nil {
 			fmt.Println("load yaml config", err)

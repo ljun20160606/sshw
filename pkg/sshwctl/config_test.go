@@ -3,6 +3,8 @@ package sshwctl
 import (
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v2"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/user"
 	"testing"
@@ -228,4 +230,24 @@ name: bar
 
 	_, err = LoadConfig([]byte(`"`))
 	ast.NotNil(err)
+}
+
+func TestReadRemoteConfig(t *testing.T) {
+	ast := assert.New(t)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("- name: Hello"))
+	}))
+	defer ts.Close()
+
+	pathname, nodes, err := LoadYamlConfig(ts.URL)
+	if !ast.Nil(err) {
+		return
+	}
+	if !ast.Equal(ts.URL, pathname) {
+		return
+	}
+	if ast.Len(nodes, 1) {
+		ast.Equal(nodes[0].Name, "Hello")
+	}
 }

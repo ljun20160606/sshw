@@ -38,7 +38,7 @@ var (
 func init() {
 	rootCmd.Flags().BoolP("ssh", "s", false, "use local ssh config '~/.ssh/config'")
 	rootCmd.Flags().BoolP("version", "v", false, "show version")
-	rootCmd.PersistentFlags().StringP("filename", "f", "", ".sshw config filename")
+	rootCmd.PersistentFlags().StringP("filename", "f", "", ".sshw config. filename or url")
 
 	rootCmd.Run = func(cmd *cobra.Command, args []string) {
 		if v := rootCmd.Flags().Lookup("version").Value.String(); v == "true" {

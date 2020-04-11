@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path"
@@ -214,22 +216,49 @@ func PrepareConfig(config interface{}) error {
 }
 
 func LoadYamlConfig(filename string) (string, []*Node, error) {
-	var b []byte
-	var err error
-	var pathname string
-	if filename != "" {
-		pathname = AbsPath(filename)
-		b, err = ioutil.ReadFile(pathname)
-	} else {
-		pathname, b, err = LoadConfigBytes(".sshw", ".sshw.yml", ".sshw.yaml")
-	}
-
+	pathname, b, err := ReadConfigBytes(filename)
 	if err != nil {
-		return pathname, nil, err
+		return "", nil, err
 	}
 
-	nodes, err := LoadConfig(b)
-	return pathname, nodes, err
+	if nodes, err := LoadConfig(b); err != nil {
+		return "", nil, err
+	} else {
+		return pathname, nodes, nil
+	}
+}
+
+func ReadConfigBytes(filename string) (string, []byte, error) {
+	// default
+	if filename == "" {
+		pathname, b, err := ReadDefaultConfigBytes(".sshw", ".sshw.yml", ".sshw.yaml")
+		if err != nil {
+			return "", nil, err
+		}
+		return pathname, b, nil
+	}
+	// as url
+	if _, err := url.ParseRequestURI(filename); err == nil {
+		if response, err := http.Get(filename); err != nil {
+			return "", nil, err
+		} else {
+			defer func() {
+				_ = response.Body.Close()
+			}()
+			if b, err := ioutil.ReadAll(response.Body); err != nil {
+				return "", nil, err
+			} else {
+				return filename, b, nil
+			}
+		}
+	}
+	// specify path
+	pathname := AbsPath(filename)
+	b, err := ioutil.ReadFile(pathname)
+	if err != nil {
+		return "", nil, err
+	}
+	return pathname, b, nil
 }
 
 func LoadConfig(bs []byte) ([]*Node, error) {
@@ -319,7 +348,7 @@ func LoadSshConfig() ([]*Node, error) {
 	return nc, nil
 }
 
-func LoadConfigBytes(names ...string) (string, []byte, error) {
+func ReadDefaultConfigBytes(names ...string) (string, []byte, error) {
 	u, err := user.Current()
 	if err != nil {
 		return "", nil, err
