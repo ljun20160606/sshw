@@ -105,11 +105,13 @@ func extractVersions(content []byte) []VersionMeta {
 type WriteCounter struct {
 	Total            uint64
 	ProgressTemplate string
+	W                io.Writer
 }
 
 func NewWriteCounter() *WriteCounter {
 	return &WriteCounter{
 		ProgressTemplate: "Reading ",
+		W:                os.Stdout,
 	}
 }
 
@@ -123,11 +125,11 @@ func (wc *WriteCounter) Write(p []byte) (int, error) {
 func (wc WriteCounter) PrintProgress() {
 	// Clear the line by using a character return to go back to the start and remove
 	// the remaining characters by filling it with spaces
-	fmt.Printf("\r%s", strings.Repeat(" ", 35))
+	fmt.Fprintf(wc.W, "\r%s", strings.Repeat(" ", 35))
 
 	// Return again and print current status of download
 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
-	fmt.Printf("\r%s... %s complete", wc.ProgressTemplate, humanize.Bytes(wc.Total))
+	fmt.Fprintf(wc.W, "\r%s... %s complete", wc.ProgressTemplate, humanize.Bytes(wc.Total))
 }
 
 // Using version and filename to generate a remote url that is used to download file.

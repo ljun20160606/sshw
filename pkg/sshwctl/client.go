@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
@@ -427,7 +428,12 @@ func (c *localClient) scp(cp *NodeCp) error {
 			return
 		}
 
-		_, err = io.Copy(w, f)
+		// show processing
+		c.node.stdout().Write([]byte("File Size: "+ humanize.Bytes(uint64(info.Size()))+"\n"))
+		scpCounter := NewWriteCounter()
+		scpCounter.W = c.node.stdout()
+		scpCounter.ProgressTemplate = "Uploading"
+		_, err = io.Copy(w, io.TeeReader(f, scpCounter))
 		if err != nil {
 			errCh <- err
 			return
