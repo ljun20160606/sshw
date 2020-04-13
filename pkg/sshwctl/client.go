@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -453,13 +454,12 @@ func (c *localClient) scp(cp *NodeCp) error {
 		}
 	}()
 
-	var timeout int64
 	if cp.Timeout == 0 {
-		timeout = 60
+		cp.Timeout = 60
 	}
 
-	if waitTimeout(&wg, time.Duration(timeout)*time.Second) {
-		return errors.New("timeout when upload files")
+	if waitTimeout(&wg, time.Duration(cp.Timeout)*time.Second) {
+		return errors.New(strconv.Itoa(int(cp.Timeout)) + "s timeout when upload files")
 	}
 
 	close(errCh)
