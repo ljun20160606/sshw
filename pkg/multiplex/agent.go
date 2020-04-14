@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"golang.org/x/crypto/ssh"
+	"io"
 	"net"
 	"os"
 )
@@ -71,20 +72,7 @@ func (m *masterClient) Scp() error {
 		Body: body,
 	})
 
-	if err := Put(conn.(*net.UnixConn), os.Stdin, os.Stdout, os.Stderr); err != nil {
-		return err
-	}
-
-	// read error message
-	reader := NewJsonProtoReader(conn)
-	resp := new(Response)
-	_ = reader.Read(resp)
-	p := &PlainResult{}
-	_ = json.Unmarshal(resp.Body, p)
-	if p.Code != 0 {
-		return errors.New(p.Message)
-	}
-	return nil
+	return fdWait(conn, nil)
 }
 
 func (m *masterClient) Shell() error {
@@ -99,32 +87,19 @@ func (m *masterClient) Shell() error {
 		Body: body,
 	})
 
-	if err := Put(conn.(*net.UnixConn), os.Stdin, os.Stdout, os.Stderr); err != nil {
-		return err
-	}
-
-	// watch window change
-	m.LocalClient.WatchWindowChange(func(ch, cw int) error {
-		request := ChangeWindowRequest{
-			Width:  cw,
-			Height: ch,
-		}
-		if err := writer.Write(request); err != nil {
-			return err
-		}
-		return nil
+	return fdWait(conn, func() {
+		// watch window change
+		m.LocalClient.WatchWindowChange(func(ch, cw int) error {
+			request := ChangeWindowRequest{
+				Width:  cw,
+				Height: ch,
+			}
+			if err := writer.Write(request); err != nil {
+				return err
+			}
+			return nil
+		})
 	})
-
-	// read error message
-	reader := NewJsonProtoReader(conn)
-	resp := new(Response)
-	_ = reader.Read(resp)
-	p := &PlainResult{}
-	_ = json.Unmarshal(resp.Body, p)
-	if p.Code != 0 {
-		return errors.New(p.Message)
-	}
-	return nil
 }
 
 func (m *masterClient) Close() error {
@@ -141,4 +116,37 @@ func (m *masterClient) SetClient(client *ssh.Client) {
 
 func (m *masterClient) Ping() error {
 	panic("implement me")
+}
+
+// send fd
+func fdWait(conn io.Reader, meanWhile func()) error {
+	reader := NewJsonProtoReader(conn)
+	var fdPutError error
+	for i := 0; i < 3; i++ {
+		if err := Put(conn.(*net.UnixConn), os.Stdin, os.Stdout, os.Stderr); err != nil {
+			return err
+		}
+
+		if fdPutError = readSuccess(reader); fdPutError == nil {
+			break
+		}
+	}
+	if meanWhile != nil {
+		meanWhile()
+	}
+
+	return readSuccess(reader)
+}
+
+// read message, if code != 0 return error
+func readSuccess(reader ProtoReader) error {
+	// read error message
+	resp := new(Response)
+	_ = reader.Read(resp)
+	p := &PlainResult{}
+	_ = json.Unmarshal(resp.Body, p)
+	if p.Code != 0 {
+		return errors.New(p.Message)
+	}
+	return nil
 }

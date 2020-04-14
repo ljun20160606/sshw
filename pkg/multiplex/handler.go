@@ -2,9 +2,9 @@ package multiplex
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
+	"github.com/pkg/errors"
 	"io"
 	"net"
 	"strings"
@@ -86,15 +86,24 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 		parsedClientRequest := &ClientRequest{}
 		_ = json.Unmarshal(req.Body, parsedClientRequest)
 		node := parsedClientRequest.Node
-		stdConn, err := m.GetFd(w)
-		if err != nil {
-			m.Fail(w, err)
+		var stdConn *StdConn
+		var stdConnErr error
+		for i := 0; i < 3; i++ {
+			stdConn, stdConnErr = m.GetFd(w)
+			if stdConnErr != nil {
+				m.Fail(w, errors.WithMessage(stdConnErr, "get fd"))
+				continue
+			}
+			m.Success(w, "ok")
+			node.Stdin = stdConn.Stdin
+			node.Stdout = stdConn.Stdout
+			node.Stderr = stdConn.Stderr
+			break
+		}
+		if stdConn == nil {
 			m.CloseConn(w)
 			return
 		}
-		node.Stdin = stdConn.Stdin
-		node.Stdout = stdConn.Stdout
-		node.Stderr = stdConn.Stderr
 
 		client, err := m.NewClient(node)
 		if err != nil {
