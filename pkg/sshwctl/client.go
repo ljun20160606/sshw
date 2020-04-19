@@ -145,7 +145,8 @@ func (c *localClient) dial() (*ssh.Client, error) {
 		if strings.Contains(msg, "no supported methods remain") && !strings.Contains(msg, "password") {
 			c.node.Print(fmt.Sprintf("%s@%s's password:", c.clientConfig.User, c.node.Host))
 			var b []byte
-			b, err = terminal.ReadPassword(int(c.node.stdin().(*os.File).Fd()))
+			// todo fd
+			b, err = terminal.ReadPassword(0)
 			if err == nil {
 				p := string(b)
 				if p != "" {
@@ -354,13 +355,14 @@ func (c *localClient) Shell() error {
 
 	// change stdin to user
 	go func() {
-		if _, err := io.Copy(stdinPipe, c.node.stdin()); err != nil {
-			c.node.Error(err)
+		if _, err := io.Copy(stdinPipe, c.node.stdin()); err != nil && err != io.EOF {
+			c.node.Error(errors.WithMessage(err, "read from stdin"))
 		}
-		_ = session.Close()
 	}()
 
-	_ = session.Wait()
+	if err := session.Wait(); err != nil {
+		return errors.WithMessage(err, "session wait")
+	}
 	return nil
 }
 
@@ -429,7 +431,7 @@ func (c *localClient) scp(cp *NodeCp) error {
 		}
 
 		// show processing
-		c.node.stdout().Write([]byte("File Size: "+ humanize.Bytes(uint64(info.Size()))+"\n"))
+		c.node.stdout().Write([]byte("File Size: " + humanize.Bytes(uint64(info.Size())) + "\n"))
 		scpCounter := NewWriteCounter()
 		scpCounter.W = c.node.stdout()
 		scpCounter.ProgressTemplate = "Uploading"
@@ -540,7 +542,6 @@ func AutoSSHAgent() error {
 }
 
 func Shell() string {
-
 	currentShell := os.Getenv("SHELL")
 	if currentShell == "" {
 		return "/bin/sh"
@@ -597,5 +598,4 @@ func checkResponse(r io.Reader) error {
 	}
 
 	return nil
-
 }

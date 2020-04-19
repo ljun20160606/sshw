@@ -42,7 +42,7 @@ type Node struct {
 	KeyboardInteractions []KeyboardInteractive `yaml:"keyboard-interactions"`
 	ControlMaster        *bool                 `yaml:"control-master"`
 
-	Stdin   io.Reader       `yaml:"-"`
+	Stdin   io.ReadCloser   `yaml:"-"`
 	Stdout  io.Writer       `yaml:"-"`
 	Stderr  io.Writer       `yaml:"-"`
 	Width   int             `yaml:"-"`
@@ -51,7 +51,7 @@ type Node struct {
 	Session *ssh.Session    `yaml:"-"`
 }
 
-func (n *Node) stdin() io.Reader {
+func (n *Node) stdin() io.ReadCloser {
 	if n.Stdin != nil {
 		return n.Stdin
 	}

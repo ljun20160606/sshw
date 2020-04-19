@@ -3,6 +3,7 @@ package sshwctl
 import (
 	"bufio"
 	"github.com/ljun20160606/eventbus"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 	"io"
 	"math"
@@ -17,13 +18,19 @@ func init() {
 func IOOnStdout(ctx *EventContext, bytes []byte) error {
 	node := ctx.Node
 	_, err := node.stdout().Write(bytes)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func IOOnStderr(ctx *EventContext, bytes []byte) error {
 	node := ctx.Node
 	_, err := node.stderr().Write(bytes)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func readLine(node *Node, session *ssh.Session, getReader func() (io.Reader, error), lineSolver func(line []byte) error) error {
@@ -39,7 +46,7 @@ func readLine(node *Node, session *ssh.Session, getReader func() (io.Reader, err
 			b, err := reader.ReadByte()
 			if err != nil {
 				if err != io.EOF {
-					node.Error(err)
+					node.Error(errors.WithMessage(err, "read stdout"))
 				}
 				_ = session.Close()
 				return
@@ -60,7 +67,7 @@ func readLine(node *Node, session *ssh.Session, getReader func() (io.Reader, err
 				}
 
 				if err := lineSolver(buf); err != nil {
-					node.Error(err)
+					node.Error(errors.WithMessage(err, "line solve"))
 					_ = session.Close()
 					return
 				}

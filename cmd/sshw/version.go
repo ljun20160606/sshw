@@ -112,8 +112,8 @@ func showVersion() {
 }
 
 var versionNewCmd = &cobra.Command{
-	Use:    "new",
-	Short:  "Show version new",
+	Use:   "new",
+	Short: "Show version new",
 	Run: func(cmd *cobra.Command, args []string) {
 		showVersion()
 		fmt.Println("It's recommended to stop running sever after upgrade:\n    sshw server stop")

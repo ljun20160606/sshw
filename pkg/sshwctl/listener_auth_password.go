@@ -5,7 +5,6 @@ import (
 	"github.com/dgryski/dgoogauth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +51,8 @@ func AuthPwdPostInitClientConfig(ctx *EventContext, clientConfig *ssh.ClientConf
 					return nil, err
 				}
 			} else {
-				b, err := terminal.ReadPassword(int(node.stdin().(*os.File).Fd()))
+				// todo fd
+				b, err := terminal.ReadPassword(0)
 				if err != nil {
 					return nil, err
 				}
