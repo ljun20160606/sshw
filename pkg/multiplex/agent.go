@@ -63,6 +63,9 @@ func (m *masterClient) Connect() error {
 }
 
 func (m *masterClient) Scp() error {
+	if len(m.Node.Scps) == 0 {
+		return nil
+	}
 	num, err := GetNum()
 	if err != nil {
 		return err
