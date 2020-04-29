@@ -170,6 +170,7 @@ func ExecClient(client sshwctl.Client, node *sshwctl.Node) error {
 	if err := client.InitTerminal(); err != nil {
 		return err
 	}
+	defer client.RecoverTerminal()
 	client.WatchWindowChange(func(ch, cw int) error {
 		if node.Session != nil {
 			return node.Session.WindowChange(ch, cw)
@@ -179,10 +180,12 @@ func ExecClient(client sshwctl.Client, node *sshwctl.Node) error {
 	if err := client.Scp(); err != nil {
 		return err
 	}
+	if len(node.Scps) != 0 && len(node.CallbackShells) == 0 {
+		return nil
+	}
 	if err := client.Shell(); err != nil {
 		return err
 	}
-	client.RecoverTerminal()
 	if err := client.ExecsPost(); err != nil {
 		return err
 	}
