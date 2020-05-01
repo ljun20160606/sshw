@@ -5,6 +5,7 @@ import (
 	"github.com/ljun20160606/sshw/pkg/multiplex"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"github.com/manifoldco/promptui"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
@@ -45,45 +46,63 @@ func init() {
 			showVersion()
 			return
 		}
-		var nodes []*sshwctl.Node
-		var err error
+		var sshNodes []*sshwctl.Node
+		var sshErr error
+		if sshNodes, sshErr = sshwctl.LoadSshConfig(); sshErr == nil {
+			if err := sshwctl.InitConfig(sshNodes); err != nil {
+				sshErr = errors.WithMessage(err, "ssh")
+				return
+			}
+		}
 		if useSsh := rootCmd.Flags().Lookup("ssh").Value.String(); useSsh == "true" {
-			if nodes, err = sshwctl.LoadSshConfig(); err != nil {
-				fmt.Println("load ssh config", err)
+			if sshErr != nil {
+				fmt.Println(sshErr)
 				return
 			}
-		} else {
-			filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
-			if _, nodes, err = sshwctl.LoadYamlConfig(filename); err != nil {
-				fmt.Println("load yaml config", err)
-				return
-			}
-		}
-		if err := sshwctl.PrepareConfig(nodes); err != nil {
-			fmt.Println("prepare config", err)
+			FindAndRun(args, sshNodes)
 			return
 		}
-
-		// login by alias
-		if len(args) >= 1 {
-			var nodeAlias = args[0]
-			var node = findAlias(nodes, nodeAlias)
-			if node != nil {
-				if err := ExecNode(node); err != nil {
-					fmt.Println(err)
-				}
-				return
-			}
-		}
-
-		node := choose(nodes, nil, nodes)
-		if node == nil {
-			return
-		}
-
-		if err := ExecNode(node); err != nil {
+		// 1. load yaml
+		// 2. init config
+		// 3. merge ssh config. Do it last because there is not env variable in ssh config
+		filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
+		if _, nodes, err := sshwctl.LoadYamlConfig(filename); err != nil {
 			fmt.Println(err)
+			return
+		} else {
+			if err := sshwctl.InitConfig(nodes); err != nil {
+				fmt.Println("yaml", err)
+				return
+			}
+			if err := sshwctl.MergeSshConfig(nodes, sshNodes); err != nil {
+				fmt.Println(err)
+				return
+			}
+			FindAndRun(args, nodes)
 		}
+	}
+}
+
+func FindAndRun(args []string, nodes []*sshwctl.Node) {
+	// login by alias
+	if len(args) >= 1 {
+		var nodeAlias = args[0]
+		var node = findAlias(nodes, nodeAlias)
+		if node != nil {
+			if err := ExecNode(node); err != nil {
+				fmt.Println(err)
+			}
+			return
+		}
+	}
+
+	node := choose(nodes, nil, nodes)
+	if node == nil {
+		return
+	}
+
+	if err := ExecNode(node); err != nil {
+		fmt.Println(err)
 	}
 }
 

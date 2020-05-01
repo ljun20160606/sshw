@@ -20,7 +20,7 @@ func (r ReaderFunc) Read(p []byte) (n int, err error) {
 	return r(p)
 }
 
-func NewNonblockReader(r *os.File) (*NonblockReader, error){
+func NewNonblockReader(r *os.File) (*NonblockReader, error) {
 	if err := syscall.SetNonblock(int(r.Fd()), true); err != nil {
 		return nil, err
 	}
@@ -33,9 +33,9 @@ func NewNonblockReader(r *os.File) (*NonblockReader, error){
 }
 
 type NonblockReader struct {
-	Ctx context.Context
+	Ctx        context.Context
 	CancelFunc context.CancelFunc
-	R   *os.File
+	R          *os.File
 }
 
 func (n2 *NonblockReader) Read(p []byte) (n int, err error) {

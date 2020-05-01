@@ -25,12 +25,12 @@ var mergeCmd = &cobra.Command{
 		}
 		pathname, dstNodes, err := sshwctl.LoadYamlConfig(filename)
 		if err != nil {
-			fmt.Println("load yaml config", err)
+			fmt.Println(err)
 			return
 		}
 		_, srcNodes, err := sshwctl.LoadYamlConfig(args[0])
 		if err != nil {
-			fmt.Println("load expected merge yaml config", err)
+			fmt.Println("load expected yaml", err)
 			return
 		}
 		sshwctl.MergeNodes(&dstNodes, srcNodes)

@@ -193,9 +193,9 @@ func connOut(group *sync.WaitGroup, path string, num int64, writer io.Writer, er
 }
 
 type WrapperConn struct {
-	conn net.Conn
+	conn       net.Conn
 	cancelFunc context.CancelFunc
-	ctx context.Context
+	ctx        context.Context
 }
 
 func (w *WrapperConn) Close() error {

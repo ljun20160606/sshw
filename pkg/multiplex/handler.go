@@ -14,13 +14,13 @@ import (
 
 const (
 	PathCreateConn = "createConn"
-	PathStd      = "std"
-	PathStdin    = "stdin"
-	PathStdout   = "stdout"
-	PathStderr   = "stderr"
-	PathSession  = "session"
-	PathTerminal = PathSession + "/terminal"
-	PathScp      = PathSession + "/scp"
+	PathStd        = "std"
+	PathStdin      = "stdin"
+	PathStdout     = "stdout"
+	PathStderr     = "stderr"
+	PathSession    = "session"
+	PathTerminal   = PathSession + "/terminal"
+	PathScp        = PathSession + "/scp"
 )
 
 type StdConn struct {

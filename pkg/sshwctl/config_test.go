@@ -251,3 +251,28 @@ func TestReadRemoteConfig(t *testing.T) {
 		ast.Equal(nodes[0].Name, "Hello")
 	}
 }
+
+func TestMergeSshConfig(t *testing.T) {
+	ast := assert.New(t)
+
+	nodes := []*Node{
+		{
+			Host: "daily",
+		},
+	}
+	sshNodes := []*Node{
+		{
+			Name: "daily",
+			Host: "sshw.com",
+			User: "developer",
+			Port: 21,
+		},
+	}
+	if err := MergeSshConfig(nodes, sshNodes); !ast.Nil(err) {
+		return
+	}
+
+	ast.Equal(sshNodes[0].Host, nodes[0].Host)
+	ast.Equal(sshNodes[0].User, nodes[0].User)
+	ast.Equal(sshNodes[0].Port, nodes[0].Port)
+}

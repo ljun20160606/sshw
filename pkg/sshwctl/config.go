@@ -3,6 +3,7 @@ package sshwctl
 import (
 	"bytes"
 	"fmt"
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/terminal"
 	"io"
 	"io/ioutil"
@@ -195,9 +196,44 @@ func (n *Node) alias() string {
 	return n.Alias
 }
 
+// match .ssh/config Pattern
+// if Node.Host == config.Host
+// set config.HostName to Node.Host
+// same set config.User and config.Port
+func MergeSshConfig(nodes []*Node, sshNodes []*Node) error {
+	if nodes == nil || sshNodes == nil {
+		return nil
+	}
+	for i := range nodes {
+		node := nodes[i]
+		if err := MergeSshConfig(node.Children, sshNodes); err != nil {
+			return errors.WithMessage(err, "merge ssh")
+		}
+		if node.Host == "" {
+			continue
+		}
+		for si := range sshNodes {
+			sNode := sshNodes[si]
+			// sNode.Name is Host Pattern
+			if node.Host == sNode.Name {
+				node.Host = sNode.Host
+				if node.User == "" {
+					node.User = sNode.User
+				}
+				if node.Port == 0 {
+					node.Port = sNode.Port
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // render template into nodes
-func PrepareConfig(config interface{}) error {
-	return WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (stop bool) {
+// 1. Parse template ${Env_Variable}
+// 2. solve path.convert '*' to absPath
+func InitConfig(config interface{}) error {
+	err := WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (stop bool) {
 		if t.Kind() != reflect.String || !v.CanSet() {
 			return
 		}
@@ -213,16 +249,20 @@ func PrepareConfig(config interface{}) error {
 		v.Set(reflect.ValueOf(r))
 		return
 	})
+	if err != nil {
+		return errors.WithMessage(err, "prepare config")
+	}
+	return nil
 }
 
 func LoadYamlConfig(filename string) (string, []*Node, error) {
 	pathname, b, err := ReadConfigBytes(filename)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.WithMessage(err, "load yaml")
 	}
 
 	if nodes, err := LoadConfig(b); err != nil {
-		return "", nil, err
+		return "", nil, errors.WithMessage(err, "load yaml")
 	} else {
 		return pathname, nodes, nil
 	}
@@ -321,7 +361,7 @@ func AbsPath(input string) string {
 func LoadSshConfig() ([]*Node, error) {
 	u, err := user.Current()
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "load ssh")
 	}
 	f, _ := os.Open(path.Join(u.HomeDir, ".ssh/config"))
 	cfg, _ := ssh_config.Decode(f)
@@ -330,7 +370,7 @@ func LoadSshConfig() ([]*Node, error) {
 		alias := fmt.Sprintf("%s", host.Patterns[0])
 		hostName, err := cfg.Get(alias, "HostName")
 		if err != nil {
-			return nil, err
+			return nil, errors.WithMessage(err, "load ssh")
 		}
 		if hostName != "" {
 			port, _ := cfg.Get(alias, "Port")

@@ -179,7 +179,7 @@ func (c *localClient) ExecsPre() error {
 	if hasVar, err := execs(c.node.ExecsPre, c.node.stdin(), c.node.stdout()); err != nil {
 		return err
 	} else if hasVar {
-		if err := PrepareConfig(c.node); err != nil {
+		if err := InitConfig(c.node); err != nil {
 			return err
 		}
 	}
