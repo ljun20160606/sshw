@@ -43,10 +43,8 @@ TEMPLATE:
 			}
 			if len(spiltColon) != 1 {
 				defaultValue := spiltColon[1]
-				if defaultValue != "" {
-					builder.WriteString(defaultValue)
-					continue
-				}
+				builder.WriteString(defaultValue)
+				continue
 			}
 			// if and when can not find value, write origin str
 			builder.WriteString(templateNode.Value)

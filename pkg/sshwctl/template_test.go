@@ -66,6 +66,11 @@ func TestParseSshwTemplate(t *testing.T) {
 			args: args{src: "${ANYUSER:defaultUser}"},
 			want: "defaultUser",
 		},
+		{
+			name: "emptyDefaultValue",
+			args: args{src: "${ANYVALUE:}"},
+			want: "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
