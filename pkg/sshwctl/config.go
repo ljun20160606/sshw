@@ -161,11 +161,12 @@ func (n *Node) String() string {
 }
 
 func (n *Node) user() string {
-	if n.User == "" {
-		return "root"
-	}
+	envUser := os.Getenv("USER")
 	if n.User == "$USER" {
-		return os.Getenv("USER")
+		return envUser
+	}
+	if n.User == "" {
+		return envUser
 	}
 	return n.User
 }
