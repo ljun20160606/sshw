@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/user"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -22,6 +21,13 @@ import (
 	"github.com/kevinburke/ssh_config"
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/yaml.v2"
+)
+
+var (
+	homeDir, _           = os.UserHomeDir()
+	SshPath              = path.Join(homeDir, ".ssh/config")
+	SshwDir              = path.Join(homeDir, ".config/sshw")
+	SshwGlobalConfigPath = path.Join(SshwDir, "config.yaml")
 )
 
 type Node struct {
@@ -256,19 +262,70 @@ func InitConfig(config interface{}) error {
 	return nil
 }
 
+// global config
+var globalConfig []*Node
+
+func init() {
+	_, globalConfig, _ = LoadYamlConfig(SshwGlobalConfigPath)
+}
+
+// update nodes with global config
+// if host is equal, update node
+// only iterate first level
+func InitNodesWithSshwConfig(nodes []*Node) {
+	if nodes == nil || globalConfig == nil {
+		return
+	}
+	for i := range nodes {
+		node := nodes[i]
+		InitNodesWithSshwConfig(node.Children)
+		if node.Host == "" {
+			continue
+		}
+		for si := range globalConfig {
+			sNode := globalConfig[si]
+			if node.Host == sNode.Host {
+				if node.User == "" {
+					node.User = sNode.User
+				}
+				if node.Port == 0 {
+					node.Port = sNode.Port
+				}
+				if node.Password == "" {
+					node.Password = sNode.Password
+				}
+				if len(node.KeyboardInteractions) == 0 {
+					node.KeyboardInteractions = sNode.KeyboardInteractions
+				}
+				if node.ControlMaster == nil {
+					node.ControlMaster = sNode.ControlMaster
+				}
+				if node.KeyPath == "" {
+					node.KeyPath = sNode.KeyPath
+				}
+				if node.Passphrase == "" {
+					node.Passphrase = sNode.Passphrase
+				}
+			}
+		}
+	}
+}
+
+// return filepath and nodes, load config in filename
 func LoadYamlConfig(filename string) (string, []*Node, error) {
 	pathname, b, err := ReadConfigBytes(filename)
 	if err != nil {
 		return "", nil, errors.WithMessage(err, "load yaml")
 	}
 
-	if nodes, err := LoadConfig(b); err != nil {
+	if nodes, err := LoadYamlConfig0(b); err != nil {
 		return "", nil, errors.WithMessage(err, "load yaml")
 	} else {
 		return pathname, nodes, nil
 	}
 }
 
+// return filepath and bytes of config
 func ReadConfigBytes(filename string) (string, []byte, error) {
 	// default
 	if filename == "" {
@@ -278,8 +335,8 @@ func ReadConfigBytes(filename string) (string, []byte, error) {
 		}
 		return pathname, b, nil
 	}
-	// as url
-	if _, err := url.ParseRequestURI(filename); err == nil {
+	// as url, if filename is /absolute/filename, err is nil, so need check Host
+	if uri, err := url.ParseRequestURI(filename); err == nil && uri.Host != "" {
 		if response, err := http.Get(filename); err != nil {
 			return "", nil, err
 		} else {
@@ -302,44 +359,6 @@ func ReadConfigBytes(filename string) (string, []byte, error) {
 	return pathname, b, nil
 }
 
-func LoadConfig(bs []byte) ([]*Node, error) {
-	var result []*Node
-
-	reader1 := bytes.NewReader(bs)
-	reader2 := bytes.NewReader(bs)
-	{
-		var e error
-		decoder1 := yaml.NewDecoder(reader1)
-		decoder2 := yaml.NewDecoder(reader2)
-		for {
-			n := new(Node)
-			if err := decoder1.Decode(n); err != nil {
-				if err == io.EOF {
-					return result, nil
-				}
-				e = err
-			} else {
-				if n.Name == "" {
-					continue
-				}
-				result = append(result, n)
-			}
-
-			var nodes []*Node
-			if err := decoder2.Decode(&nodes); err != nil {
-				if err == io.EOF {
-					return result, nil
-				}
-				if e != nil {
-					return result, e
-				}
-			} else {
-				result = append(result, nodes...)
-			}
-		}
-	}
-}
-
 // AbsPath returns absolute path and match wild path
 // if match multiple path, return first
 func AbsPath(input string) string {
@@ -348,8 +367,7 @@ func AbsPath(input string) string {
 		return ""
 	}
 	if p[0] == '~' {
-		u, _ := user.Current()
-		p = path.Join(u.HomeDir, p[1:])
+		p = path.Join(homeDir, p[1:])
 	}
 	matches, _ := filepath.Glob(p)
 	if len(matches) != 0 {
@@ -359,19 +377,96 @@ func AbsPath(input string) string {
 	return abs
 }
 
-func LoadSshConfig() ([]*Node, error) {
-	u, err := user.Current()
-	if err != nil {
-		return nil, errors.WithMessage(err, "load ssh")
+// return yaml config
+func LoadYamlConfig0(bs []byte) ([]*Node, error) {
+	var result []*Node
+	configLoader := NewYamlConfigLoader(bs)
+	if err := configLoader.Decode(&result); err != nil {
+		return nil, err
 	}
-	f, _ := os.Open(path.Join(u.HomeDir, ".ssh/config"))
-	cfg, _ := ssh_config.Decode(f)
+	return result, nil
+}
+
+// return config of .ssh/config
+func LoadSshConfig() ([]*Node, error) {
+	f, _ := os.Open(SshPath)
+	defer func() {
+		_ = f.Close()
+	}()
+	loader := NewSshConfigLoader(f)
 	var nc []*Node
+	if err := loader.Decode(&nc); err != nil {
+		return nil, err
+	}
+	return nc, nil
+}
+
+type ConfigLoader interface {
+	Decode(nodes *[]*Node) error
+}
+
+type YamlConfigLoader struct {
+	bs []byte
+}
+
+func NewYamlConfigLoader(bs []byte) ConfigLoader {
+	return &YamlConfigLoader{bs: bs}
+}
+
+func (y *YamlConfigLoader) Decode(nodes *[]*Node) error {
+	reader1 := bytes.NewReader(y.bs)
+	reader2 := bytes.NewReader(y.bs)
+	{
+		var e error
+		decoder1 := yaml.NewDecoder(reader1)
+		decoder2 := yaml.NewDecoder(reader2)
+		for {
+			n := new(Node)
+			if err := decoder1.Decode(n); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				e = err
+			} else {
+				if n.Name == "" {
+					continue
+				}
+				*nodes = append(*nodes, n)
+			}
+
+			var ns []*Node
+			if err := decoder2.Decode(&ns); err != nil {
+				if err == io.EOF {
+					return nil
+				}
+				if e != nil {
+					return e
+				}
+			} else {
+				*nodes = append(*nodes, ns...)
+			}
+		}
+	}
+}
+
+type SshConfigLoader struct {
+	r io.Reader
+}
+
+func NewSshConfigLoader(r io.Reader) ConfigLoader {
+	return &SshConfigLoader{r: r}
+}
+
+func (s *SshConfigLoader) Decode(nodes *[]*Node) error {
+	cfg, err := ssh_config.Decode(s.r)
+	if err != nil {
+		return err
+	}
 	for _, host := range cfg.Hosts {
 		alias := fmt.Sprintf("%s", host.Patterns[0])
 		hostName, err := cfg.Get(alias, "HostName")
 		if err != nil {
-			return nil, errors.WithMessage(err, "load ssh")
+			return errors.WithMessage(err, "load ssh")
 		}
 		if hostName != "" {
 			port, _ := cfg.Get(alias, "Port")
@@ -383,20 +478,16 @@ func LoadSshConfig() ([]*Node, error) {
 			c.Port, _ = strconv.Atoi(port)
 			keyPath, _ := cfg.Get(alias, "IdentityFile")
 			c.KeyPath, _ = homedir.Expand(keyPath)
-			nc = append(nc, c)
+			*nodes = append(*nodes, c)
 		}
 	}
-	return nc, nil
+	return nil
 }
 
 func ReadDefaultConfigBytes(names ...string) (string, []byte, error) {
-	u, err := user.Current()
-	if err != nil {
-		return "", nil, err
-	}
 	// homedir
 	for i := range names {
-		pathname := path.Join(u.HomeDir, names[i])
+		pathname := path.Join(homeDir, names[i])
 		configBytes, err := ioutil.ReadFile(pathname)
 		if err == nil {
 			return pathname, configBytes, nil
@@ -410,5 +501,23 @@ func ReadDefaultConfigBytes(names ...string) (string, []byte, error) {
 			return pathname, configBytes, nil
 		}
 	}
-	return "", nil, err
+	return "", nil, nil
+}
+
+// 1. load global yaml
+// 2. render template
+// 3. load .ssh/config
+func InitNodes(nodes []*Node) error {
+	// 1
+	InitNodesWithSshwConfig(nodes)
+	// 2
+	if err := InitConfig(nodes); err != nil {
+		return err
+	}
+	// 3
+	sshNodes, _ := LoadSshConfig()
+	if err := MergeSshConfig(nodes, sshNodes); err != nil {
+		return err
+	}
+	return nil
 }

@@ -215,7 +215,7 @@ func TestAbsPath(t *testing.T) {
 func TestLoadConfig(t *testing.T) {
 	ast := assert.New(t)
 
-	config, err := LoadConfig([]byte(`
+	config, err := LoadYamlConfig0([]byte(`
 name: foo
 ---
 name: bar
@@ -228,7 +228,7 @@ name: bar
 	ast.Equal(config[1].Name, "bar")
 	ast.Equal(config[2].Name, "zoo")
 
-	_, err = LoadConfig([]byte(`"`))
+	_, err = LoadYamlConfig0([]byte(`"`))
 	ast.NotNil(err)
 }
 
@@ -275,4 +275,27 @@ func TestMergeSshConfig(t *testing.T) {
 	ast.Equal(sshNodes[0].Host, nodes[0].Host)
 	ast.Equal(sshNodes[0].User, nodes[0].User)
 	ast.Equal(sshNodes[0].Port, nodes[0].Port)
+}
+
+func TestInitNodesWithSshwConfig(t *testing.T) {
+	ast := assert.New(t)
+
+	globalConfig = []*Node{
+		{
+			Host:       "test",
+			User:       "user",
+			Port:       22,
+			Passphrase: "passphrase",
+			Password:   "123",
+			KeyPath:    ".ssh",
+		},
+	}
+
+	nodes := []*Node{
+		{
+			Host: "test",
+		},
+	}
+	InitNodesWithSshwConfig(nodes)
+	ast.Equal(globalConfig, nodes)
 }

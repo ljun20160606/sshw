@@ -509,7 +509,6 @@ func (c *localClient) Close() error {
 }
 
 var (
-	homeDir, _  = os.UserHomeDir()
 	dotSSHIdRsa = ".ssh/id_rsa"
 	userIdRsa   = path.Join(homeDir, dotSSHIdRsa)
 )

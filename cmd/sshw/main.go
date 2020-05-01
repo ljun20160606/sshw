@@ -68,38 +68,27 @@ func NewNodesLoaderConfig() *NodesLoaderConfig {
 	}
 }
 
+// 1. load -f yaml
+// 2. load global yaml
+// 3. render template
+// 4. load .ssh/config. Do it last because there is not env variable in ssh config
 func NewNodes(conf *NodesLoaderConfig) ([]*sshwctl.Node, error) {
 	if conf.useSsh {
 		sshNodes, sshErr := sshwctl.LoadSshConfig()
 		if sshErr != nil {
 			return nil, sshErr
 		}
+		sshwctl.InitNodesWithSshwConfig(sshNodes)
 		return sshNodes, nil
 	}
-	// 1. load yaml
-	// 2. init config
-	// 3. merge ssh config. Do it last because there is not env variable in ssh config
-	if _, nodes, err := sshwctl.LoadYamlConfig(conf.filename); err != nil {
+	_, nodes, err := sshwctl.LoadYamlConfig(conf.filename)
+	if err != nil {
 		return nil, err
-	} else {
-		if err := InitNodes(nodes); err != nil {
-			return nil, err
-		}
-		return nodes, nil
 	}
-}
-
-// 1. render env variable
-// 2. merge ssh
-func InitNodes(nodes []*sshwctl.Node) error {
-	if err := sshwctl.InitConfig(nodes); err != nil {
-		return err
+	if err := sshwctl.InitNodes(nodes); err != nil {
+		return nil, err
 	}
-	sshNodes, _ := sshwctl.LoadSshConfig()
-	if err := sshwctl.MergeSshConfig(nodes, sshNodes); err != nil {
-		return err
-	}
-	return nil
+	return nodes, nil
 }
 
 func FindAndRun(nodes []*sshwctl.Node, args []string) {
@@ -126,8 +115,8 @@ func FindAndRun(nodes []*sshwctl.Node, args []string) {
 }
 
 var (
-	SSHWLogPath = path.Join(multiplex.SocketDir, "sshw.log")
-	SSHWPidPath = path.Join(multiplex.SocketDir, "sshw.pid")
+	SSHWLogPath = path.Join(sshwctl.SshwDir, "sshw.log")
+	SSHWPidPath = path.Join(sshwctl.SshwDir, "sshw.pid")
 )
 
 func PersistPid(pid int) {

@@ -1,12 +1,10 @@
 package multiplex
 
 import (
-	"os"
+	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"path"
 )
 
 var (
-	homeDir, _ = os.UserHomeDir()
-	SocketDir  = path.Dir(SocketPath)
-	SocketPath = path.Join(homeDir, ".config/sshw/sshw.socket")
+	SocketPath = path.Join(sshwctl.SshwDir, "sshw.socket")
 )

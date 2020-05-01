@@ -57,7 +57,7 @@ var scpCmd = &cobra.Command{
 				},
 			},
 		}}
-		if err := InitNodes(nodes); err != nil {
+		if err := sshwctl.InitNodes(nodes); err != nil {
 			fmt.Println(err)
 			return
 		}

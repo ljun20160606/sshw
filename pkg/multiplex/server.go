@@ -2,6 +2,7 @@ package multiplex
 
 import (
 	"fmt"
+	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"net"
 	"os"
 	"os/signal"
@@ -49,8 +50,9 @@ func (c *conn) serve() {
 	}
 }
 
+// make ~/.config/sshw
 func Setup() error {
-	return os.MkdirAll(SocketDir, 0755)
+	return os.MkdirAll(sshwctl.SshwDir, 0755)
 }
 
 type Server struct {
