@@ -3,9 +3,9 @@ module github.com/ljun20160606/sshw
 go 1.13
 
 require (
+	github.com/alecthomas/participle v0.4.3
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/atrox/homedir v1.0.0
-	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/dgryski/dgoogauth v0.0.0-20190221195224-5a805980a5f3
 	github.com/dustin/go-humanize v1.0.0
 	github.com/gordonklaus/ineffassign v0.0.0-20190601041439-ed7b1b5ee0f8 // indirect

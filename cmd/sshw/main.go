@@ -5,7 +5,6 @@ import (
 	"github.com/ljun20160606/sshw/pkg/multiplex"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"github.com/manifoldco/promptui"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
@@ -46,44 +45,64 @@ func init() {
 			showVersion()
 			return
 		}
-		var sshNodes []*sshwctl.Node
-		var sshErr error
-		if sshNodes, sshErr = sshwctl.LoadSshConfig(); sshErr == nil {
-			if err := sshwctl.InitConfig(sshNodes); err != nil {
-				sshErr = errors.WithMessage(err, "ssh")
-				return
-			}
-		}
-		if useSsh := rootCmd.Flags().Lookup("ssh").Value.String(); useSsh == "true" {
-			if sshErr != nil {
-				fmt.Println(sshErr)
-				return
-			}
-			FindAndRun(args, sshNodes)
-			return
-		}
-		// 1. load yaml
-		// 2. init config
-		// 3. merge ssh config. Do it last because there is not env variable in ssh config
-		filename := rootCmd.PersistentFlags().Lookup("filename").Value.String()
-		if _, nodes, err := sshwctl.LoadYamlConfig(filename); err != nil {
+		nodes, err := NewNodes(NewNodesLoaderConfig())
+		if err != nil {
 			fmt.Println(err)
 			return
-		} else {
-			if err := sshwctl.InitConfig(nodes); err != nil {
-				fmt.Println("yaml", err)
-				return
-			}
-			if err := sshwctl.MergeSshConfig(nodes, sshNodes); err != nil {
-				fmt.Println(err)
-				return
-			}
-			FindAndRun(args, nodes)
 		}
+		FindAndRun(nodes, args)
 	}
 }
 
-func FindAndRun(args []string, nodes []*sshwctl.Node) {
+type NodesLoaderConfig struct {
+	// if true only use ssh config as nodes
+	useSsh bool
+	// .sshw.yaml path
+	filename string
+}
+
+func NewNodesLoaderConfig() *NodesLoaderConfig {
+	return &NodesLoaderConfig{
+		useSsh:   rootCmd.Flags().Lookup("ssh").Value.String() == "true",
+		filename: rootCmd.PersistentFlags().Lookup("filename").Value.String(),
+	}
+}
+
+func NewNodes(conf *NodesLoaderConfig) ([]*sshwctl.Node, error) {
+	if conf.useSsh {
+		sshNodes, sshErr := sshwctl.LoadSshConfig()
+		if sshErr != nil {
+			return nil, sshErr
+		}
+		return sshNodes, nil
+	}
+	// 1. load yaml
+	// 2. init config
+	// 3. merge ssh config. Do it last because there is not env variable in ssh config
+	if _, nodes, err := sshwctl.LoadYamlConfig(conf.filename); err != nil {
+		return nil, err
+	} else {
+		if err := InitNodes(nodes); err != nil {
+			return nil, err
+		}
+		return nodes, nil
+	}
+}
+
+// 1. render env variable
+// 2. merge ssh
+func InitNodes(nodes []*sshwctl.Node) error {
+	if err := sshwctl.InitConfig(nodes); err != nil {
+		return err
+	}
+	sshNodes, _ := sshwctl.LoadSshConfig()
+	if err := sshwctl.MergeSshConfig(nodes, sshNodes); err != nil {
+		return err
+	}
+	return nil
+}
+
+func FindAndRun(nodes []*sshwctl.Node, args []string) {
 	// login by alias
 	if len(args) >= 1 {
 		var nodeAlias = args[0]
