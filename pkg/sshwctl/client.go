@@ -393,6 +393,9 @@ func (c *localClient) scp(cp *NodeCp) error {
 	perm := fmt.Sprintf("%04o", info.Mode().Perm())
 
 	remotePath := cp.Tgt
+	if remotePath == "" {
+		remotePath = "~"
+	}
 	filename := path.Base(cp.Src)
 
 	wg := sync.WaitGroup{}
@@ -454,7 +457,7 @@ func (c *localClient) scp(cp *NodeCp) error {
 	}()
 
 	go func() {
-		c.node.Println("scp " + cp.Src + " remote:" + cp.Tgt)
+		c.node.Println("scp " + cp.Src + " " + c.node.Host + ":" + remotePath)
 		defer wg.Done()
 		if err := session.Run(fmt.Sprintf("%s -qt %s", "scp", remotePath)); err != nil {
 			errCh <- err
