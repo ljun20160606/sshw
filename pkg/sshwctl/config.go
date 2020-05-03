@@ -156,8 +156,9 @@ type NodeCallbackShell struct {
 }
 
 type NodeCp struct {
-	Src string `yaml:"src" sshw:"path"`
-	Tgt string `yaml:"tgt"`
+	Src       string `yaml:"src"`
+	Tgt       string `yaml:"tgt"`
+	IsReceive bool   `yaml:"is-receive"`
 	// seconds
 	Timeout int64
 }

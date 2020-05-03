@@ -5,15 +5,14 @@ import (
 	"context"
 	"fmt"
 	"github.com/dustin/go-humanize"
+	"github.com/ljun20160606/go-scp"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/agent"
 	"io"
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/crypto/ssh"
@@ -373,129 +372,55 @@ func (c *localClient) ExecsPost() error {
 	return nil
 }
 
+type customReadCloser struct {
+	c io.Closer
+	r io.Reader
+}
+
+func (c *customReadCloser) Read(p []byte) (n int, err error) {
+	return c.r.Read(p)
+}
+
+func (c *customReadCloser) Close() error {
+	return c.c.Close()
+}
+
 // like shell scp
 // cp local file into server
 func (c *localClient) scp(cp *NodeCp) error {
-	session, err := c.client.NewSession()
-	if err != nil {
-		return errors.New("Failed to create session: " + err.Error())
-	}
-	realfilePath := cp.Src
-	f, err := os.Open(realfilePath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	info, _ := f.Stat()
-	perm := fmt.Sprintf("%04o", info.Mode().Perm())
-
-	remotePath := cp.Tgt
-	if remotePath == "" {
-		remotePath = "~"
-	}
-	filename := path.Base(cp.Src)
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-
-	errCh := make(chan error, 2)
-
-	go func() {
-		defer wg.Done()
-		w, err := session.StdinPipe()
-		if err != nil {
-			errCh <- err
-			return
+	newSCP := scp.NewSCP(c.client)
+	// receive
+	if cp.IsReceive {
+		absTgt := AbsPath(cp.Tgt)
+		if err := newSCP.ReceiveFile(cp.Src, absTgt); err != nil {
+			return err
 		}
-
-		defer func() {
-			_ = w.Close()
-		}()
-
-		stdout, err := session.StdoutPipe()
-
+	} else {
+		absSrc := AbsPath(cp.Src)
+		fileInfo, err := os.Stat(absSrc)
 		if err != nil {
-			errCh <- err
-			return
+			return err
 		}
-
-		_, err = fmt.Fprintln(w, "C"+perm, info.Size(), filename)
+		fileInfoFromOS := scp.NewFileInfoFromOS(fileInfo, "")
+		f, err := os.Open(absSrc)
 		if err != nil {
-			errCh <- err
-			return
-		}
-
-		if err = checkResponse(stdout); err != nil {
-			errCh <- err
-			return
+			return err
 		}
 
 		// show processing
-		c.node.stdout().Write([]byte("File Size: " + humanize.Bytes(uint64(info.Size())) + "\n"))
-		scpCounter := NewWriteCounter()
-		scpCounter.W = c.node.stdout()
-		scpCounter.ProgressTemplate = "Uploading"
-		_, err = io.Copy(w, io.TeeReader(f, scpCounter))
-		if err != nil {
-			errCh <- err
-			return
+		_, _ = c.node.stdout().Write([]byte("File Size: " + humanize.Bytes(uint64(fileInfo.Size())) + "\n"))
+		r := &customReadCloser{
+			r: io.TeeReader(f, &WriteCounter{
+				W:                c.node.stdout(),
+				ProgressTemplate: "Uploading",
+			}),
+			c: f,
 		}
-
-		_, err = fmt.Fprint(w, "\x00")
-		if err != nil {
-			errCh <- err
-			return
-		}
-
-		if err = checkResponse(stdout); err != nil {
-			errCh <- err
-			return
-		}
-	}()
-
-	go func() {
-		c.node.Println("scp " + cp.Src + " " + c.node.Host + ":" + remotePath)
-		defer wg.Done()
-		if err := session.Run(fmt.Sprintf("%s -qt %s", "scp", remotePath)); err != nil {
-			errCh <- err
-			return
-		}
-	}()
-
-	if cp.Timeout == 0 {
-		cp.Timeout = 60
-	}
-
-	if waitTimeout(&wg, time.Duration(cp.Timeout)*time.Second) {
-		return errors.New(strconv.Itoa(int(cp.Timeout)) + "s timeout when upload files")
-	}
-
-	close(errCh)
-	for err := range errCh {
-		if err != nil {
+		if err := newSCP.Send(fileInfoFromOS, r, cp.Tgt); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-// waitTimeout waits for the waitgroup for the specified max timeout.
-// Returns true if waiting timed out.
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	c := make(chan struct{})
-	go func() {
-		defer close(c)
-		wg.Wait()
-	}()
-	select {
-	case <-c:
-		return false // completed normally
-	case <-time.After(timeout):
-		return true // timed out
-	}
 }
 
 func (c *localClient) Close() error {
@@ -585,19 +510,4 @@ func execs(execs []*NodeExec, stdin io.Reader, stdout io.Writer) (bool, error) {
 		}
 	}
 	return hasVar, nil
-}
-
-// Checks the response it reads from the remote, and will return a single error in case
-// of failure
-func checkResponse(r io.Reader) error {
-	response, err := ParseResponse(r)
-	if err != nil {
-		return err
-	}
-
-	if response.IsFailure() {
-		return errors.New(response.GetMessage())
-	}
-
-	return nil
 }

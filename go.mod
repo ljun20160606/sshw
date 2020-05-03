@@ -12,6 +12,7 @@ require (
 	github.com/hashicorp/go-version v1.2.0
 	github.com/kevinburke/ssh_config v0.0.0-20190630040420-2e50c441276c
 	github.com/ljun20160606/eventbus v0.0.0-20200321135348-acd5434c3c93
+	github.com/ljun20160606/go-scp v0.0.0-20200503032344-947aad33d431
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/magefile/mage v1.8.0
 	github.com/manifoldco/promptui v0.3.2
@@ -24,7 +25,6 @@ require (
 	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
 	golang.org/x/lint v0.0.0-20190409202823-959b441ac422 // indirect
-	golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7 // indirect
 	golang.org/x/tools v0.0.0-20190716221150-e98af2309876 // indirect
 	gopkg.in/alecthomas/kingpin.v3-unstable v3.0.0-20180810215634-df19058c872c // indirect
 	gopkg.in/yaml.v2 v2.2.2
