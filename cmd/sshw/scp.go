@@ -2,35 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/alecthomas/participle"
+	"github.com/ljun20160606/sshw/pkg/language"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
 	"github.com/spf13/cobra"
 )
 
+var isLocal bool
+
 func init() {
+	scpCmd.Flags().BoolVarP(&isLocal, "local", "l", false, "do not control-master")
 	rootCmd.AddCommand(scpCmd)
-}
-
-// 1. host:path
-// 2. host:
-// 3. user@host:path
-// 4. user@host:
-type ScpValueGrammar struct {
-	User string `parser:"(@Ident \"@\")?"`
-	Host string `parser:"@Ident \":\" "`
-	Path string `parser:"@Ident?"`
-}
-
-func ParseScpValue(input string) (*ScpValueGrammar, error) {
-	parser, err := participle.Build(&ScpValueGrammar{})
-	if err != nil {
-		return nil, err
-	}
-	ast := &ScpValueGrammar{}
-	if err := parser.ParseString(input, ast); err != nil {
-		return nil, err
-	}
-	return ast, nil
 }
 
 var scpCmd = &cobra.Command{
@@ -39,23 +20,42 @@ var scpCmd = &cobra.Command{
 	Example: "sshw scp file user@host:",
 	Args:    cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		src := args[0]
-		remote := args[1]
-		scpValue, err := ParseScpValue(remote)
-		if err != nil {
-			fmt.Println("parse:"+remote+", ", err)
-			return
+		srcParam := args[0]
+		tgtParam := args[1]
+
+		var host, user string
+		var src, tgt string
+		var isReceive bool
+
+		if srcValue, err := language.ParseScpDestination(srcParam); err == nil {
+			isReceive = true
+			host = srcValue.Host
+			user = srcValue.User
+			src = srcValue.Path
+			tgt = tgtParam
+		} else {
+			if tgtValue, err := language.ParseScpDestination(tgtParam); err != nil {
+				fmt.Println(err)
+				return
+			} else {
+				host = tgtValue.Host
+				user = tgtValue.User
+				src = srcParam
+				tgt = tgtValue.Path
+			}
 		}
 
 		nodes := []*sshwctl.Node{{
-			Host: scpValue.Host,
-			User: scpValue.User,
+			Host: host,
+			User: user,
 			Scps: []*sshwctl.NodeCp{
 				{
-					Src: src,
-					Tgt: scpValue.Path,
+					Src:       src,
+					Tgt:       tgt,
+					IsReceive: isReceive,
 				},
 			},
+			ControlMaster: &isLocal,
 		}}
 		if err := sshwctl.InitNodes(nodes); err != nil {
 			fmt.Println(err)
