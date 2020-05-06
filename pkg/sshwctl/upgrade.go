@@ -129,7 +129,7 @@ func (wc *WriteCounter) PrintProgress() {
 
 	// Return again and print current status of download
 	// We use the humanize package to print the bytes in a meaningful way (e.g. 10 MB)
-	fmt.Fprintf(wc.W, "\r%s... %s complete\n", wc.ProgressTemplate, humanize.Bytes(wc.Total))
+	fmt.Fprintf(wc.W, "\r%s... %s complete", wc.ProgressTemplate, humanize.Bytes(wc.Total))
 }
 
 // Using version and filename to generate a remote url that is used to download file.
