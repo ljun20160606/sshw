@@ -22,6 +22,7 @@ var scpCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		srcParam := args[0]
 		tgtParam := args[1]
+		isRemote := !isLocal
 
 		var host, user string
 		var src, tgt string
@@ -55,7 +56,7 @@ var scpCmd = &cobra.Command{
 					IsReceive: isReceive,
 				},
 			},
-			ControlMaster: &isLocal,
+			ControlMaster: &isRemote,
 		}}
 		if err := sshwctl.InitNodes(nodes); err != nil {
 			fmt.Println(err)
