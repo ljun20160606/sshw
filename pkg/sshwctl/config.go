@@ -241,7 +241,7 @@ func MergeSshConfig(nodes []*Node, sshNodes []*Node) error {
 // 1. Parse template ${Env_Variable}
 // 2. solve path.convert '*' to absPath
 func InitConfig(config interface{}) error {
-	err := WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (stop bool) {
+	if err := WalkInterface(reflect.ValueOf(config), false, func(k string, t reflect.Type, v reflect.Value, structField *reflect.StructField) (stop bool) {
 		if t.Kind() != reflect.String || !v.CanSet() {
 			return
 		}
@@ -256,8 +256,7 @@ func InitConfig(config interface{}) error {
 		}
 		v.Set(reflect.ValueOf(r))
 		return
-	})
-	if err != nil {
+	}); err != nil {
 		return errors.WithMessage(err, "prepare config")
 	}
 	return nil

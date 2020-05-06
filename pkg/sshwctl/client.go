@@ -391,18 +391,16 @@ func (c *localClient) scp(cp *NodeCp) error {
 	newSCP := scp.NewSCP(c.client)
 	// receive
 	if cp.IsReceive {
-		absTgt := AbsPath(cp.Tgt)
-		if err := newSCP.ReceiveFile(cp.Src, absTgt); err != nil {
+		if err := newSCP.ReceiveFile(cp.Src, cp.Tgt); err != nil {
 			return err
 		}
 	} else {
-		absSrc := AbsPath(cp.Src)
-		fileInfo, err := os.Stat(absSrc)
+		fileInfo, err := os.Stat(cp.Src)
 		if err != nil {
 			return err
 		}
 		fileInfoFromOS := scp.NewFileInfoFromOS(fileInfo, "")
-		f, err := os.Open(absSrc)
+		f, err := os.Open(cp.Src)
 		if err != nil {
 			return err
 		}
