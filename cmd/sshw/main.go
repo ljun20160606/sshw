@@ -136,6 +136,17 @@ func ReadPid() (int, bool) {
 }
 
 func ExecNode(node *sshwctl.Node) error {
+	if len(node.Scps) != 0 {
+		for i := range node.Scps {
+			cp := node.Scps[i]
+			if cp.IsReceive {
+				cp.Tgt = sshwctl.AbsPath(cp.Tgt)
+			} else {
+				cp.Src = sshwctl.AbsPath(cp.Src)
+			}
+		}
+	}
+
 	if err := sshwctl.AutoSSHAgent(); err != nil {
 		if !sshwctl.UserIdRsaIsNotExist() {
 			return err
