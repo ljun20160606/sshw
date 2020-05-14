@@ -31,6 +31,7 @@ var (
 )
 
 type Node struct {
+	// Node Name or .ssh/config Host
 	Name                 string                `yaml:"name"`
 	Alias                string                `yaml:"alias,omitempty"`
 	ExecsPre             []*NodeExec           `yaml:"execs-pre,omitempty"`
@@ -269,45 +270,57 @@ func init() {
 	_, globalConfig, _ = LoadYamlConfig(SshwGlobalConfigPath)
 }
 
-// update nodes with global config
+type MatchFunc func(node *Node, globalNode *Node) bool
+
+func MatchCommonConfig(node *Node, globalNode *Node) bool {
+	return node.Host == globalNode.Host
+}
+
+func MatchSshConfig(node *Node, globalNode *Node) bool {
+	return node.Host == globalNode.Host || node.Name == globalNode.Host
+}
+
+// update nodes based on global config
 // if host is equal, update node
 // only iterate first level
-func InitNodesWithSshwConfig(nodes []*Node) {
+func InitNodesBaseOnGlobal(nodes []*Node, matchFunc MatchFunc) {
 	if nodes == nil || globalConfig == nil {
 		return
 	}
 	for i := range nodes {
 		node := nodes[i]
-		InitNodesWithSshwConfig(node.Children)
-		if node.Host == "" {
-			continue
-		}
+		InitNodesBaseOnGlobal(node.Children, matchFunc)
 		for si := range globalConfig {
-			sNode := globalConfig[si]
-			if node.Host == sNode.Host {
-				if node.User == "" {
-					node.User = sNode.User
-				}
-				if node.Port == 0 {
-					node.Port = sNode.Port
-				}
-				if node.Password == "" {
-					node.Password = sNode.Password
-				}
-				if len(node.KeyboardInteractions) == 0 {
-					node.KeyboardInteractions = sNode.KeyboardInteractions
-				}
-				if node.ControlMaster == nil {
-					node.ControlMaster = sNode.ControlMaster
-				}
-				if node.KeyPath == "" {
-					node.KeyPath = sNode.KeyPath
-				}
-				if node.Passphrase == "" {
-					node.Passphrase = sNode.Passphrase
-				}
+			globalNode := globalConfig[si]
+			if matchFunc(node, globalNode) {
+				fillIfEmpty(node, globalNode)
 			}
 		}
+	}
+}
+
+// fill the properties of configuration type
+func fillIfEmpty(node, sNode *Node) {
+	if node.User == "" {
+		node.User = sNode.User
+	}
+	if node.Port == 0 {
+		node.Port = sNode.Port
+	}
+	if node.Password == "" {
+		node.Password = sNode.Password
+	}
+	if len(node.KeyboardInteractions) == 0 {
+		node.KeyboardInteractions = sNode.KeyboardInteractions
+	}
+	if node.ControlMaster == nil {
+		node.ControlMaster = sNode.ControlMaster
+	}
+	if node.KeyPath == "" {
+		node.KeyPath = sNode.KeyPath
+	}
+	if node.Passphrase == "" {
+		node.Passphrase = sNode.Passphrase
 	}
 }
 
@@ -509,7 +522,7 @@ func ReadDefaultConfigBytes(names ...string) (string, []byte, error) {
 // 3. load .ssh/config
 func InitNodes(nodes []*Node) error {
 	// 1
-	InitNodesWithSshwConfig(nodes)
+	InitNodesBaseOnGlobal(nodes, MatchCommonConfig)
 	// 2
 	if err := InitConfig(nodes); err != nil {
 		return err
@@ -517,6 +530,18 @@ func InitNodes(nodes []*Node) error {
 	// 3
 	sshNodes, _ := LoadSshConfig()
 	if err := MergeSshConfig(nodes, sshNodes); err != nil {
+		return err
+	}
+	return nil
+}
+
+// 1. load global yaml
+// 2. render template
+func InitSshNodes(nodes []*Node) error {
+	// 1
+	InitNodesBaseOnGlobal(nodes, MatchSshConfig)
+	// 2
+	if err := InitConfig(nodes); err != nil {
 		return err
 	}
 	return nil

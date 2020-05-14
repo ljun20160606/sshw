@@ -279,7 +279,6 @@ func TestMergeSshConfig(t *testing.T) {
 
 func TestInitNodesWithSshwConfig(t *testing.T) {
 	ast := assert.New(t)
-
 	globalConfig = []*Node{
 		{
 			Host:       "test",
@@ -289,13 +288,46 @@ func TestInitNodesWithSshwConfig(t *testing.T) {
 			Password:   "123",
 			KeyPath:    ".ssh",
 		},
-	}
-
-	nodes := []*Node{
 		{
-			Host: "test",
+			Host:       "test1",
+			User:       "user",
+			Port:       22,
+			Passphrase: "passphrase",
+			Password:   "123",
+			KeyPath:    ".ssh",
 		},
 	}
-	InitNodesWithSshwConfig(nodes)
-	ast.Equal(globalConfig, nodes)
+	t.Run("matchMultipleCommon", func(t *testing.T) {
+		arg1 := []*Node{
+			{
+				Host: "test",
+			},
+			{
+				Host: "test1",
+			},
+		}
+
+		InitNodesBaseOnGlobal(arg1, MatchCommonConfig)
+		ast.Equal(globalConfig, arg1)
+	})
+	t.Run("matchSsh", func(t *testing.T) {
+		arg2 := []*Node{
+			{
+				Name: "test",
+			},
+		}
+
+		expect2 := []*Node{
+			{
+				Name:       "test",
+				User:       "user",
+				Port:       22,
+				Passphrase: "passphrase",
+				Password:   "123",
+				KeyPath:    ".ssh",
+			},
+		}
+		InitNodesBaseOnGlobal(arg2, MatchSshConfig)
+		ast.Equal(expect2, arg2)
+	})
 }
