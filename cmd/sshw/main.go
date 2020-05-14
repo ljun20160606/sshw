@@ -78,7 +78,9 @@ func NewNodes(conf *NodesLoaderConfig) ([]*sshwctl.Node, error) {
 		if sshErr != nil {
 			return nil, sshErr
 		}
-		sshwctl.InitNodesWithSshwConfig(sshNodes)
+		if err := sshwctl.InitSshNodes(sshNodes); err != nil {
+			return nil, err
+		}
 		return sshNodes, nil
 	}
 	_, nodes, err := sshwctl.LoadYamlConfig(conf.filename)
