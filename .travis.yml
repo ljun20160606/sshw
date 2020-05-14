@@ -9,4 +9,8 @@ env:
 install: true
 
 script:
-  - go run mage.go -v clean fmt test pack
+  - bash ./test.sh
+  - go run mage.go -v clean fmt pack
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
