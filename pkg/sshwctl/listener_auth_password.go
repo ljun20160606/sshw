@@ -2,10 +2,10 @@ package sshwctl
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/dgryski/dgoogauth"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -34,8 +34,7 @@ func AuthPwdPostInitClientConfig(ctx *EventContext, clientConfig *ssh.ClientConf
 				if strings.Contains(q, keyboardInteractive.Question) {
 					answer := keyboardInteractive.Answer
 					if keyboardInteractive.GoogleAuth {
-						code := dgoogauth.ComputeCode(keyboardInteractive.Answer, time.Now().Unix()/30)
-						answer = strconv.Itoa(code)
+						answer = googauthCodeStr(keyboardInteractive.Answer)
 						node.Print(answer)
 					}
 					answers = append(answers, answer)
@@ -62,4 +61,9 @@ func AuthPwdPostInitClientConfig(ctx *EventContext, clientConfig *ssh.ClientConf
 		}
 		return answers, nil
 	}))
+}
+
+func googauthCodeStr(secret string) string {
+	code := dgoogauth.ComputeCode(secret, time.Now().Unix()/30)
+	return fmt.Sprintf("%06d", code)
 }
