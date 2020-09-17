@@ -402,12 +402,18 @@ func LoadYamlConfig0(bs []byte) ([]*Node, error) {
 
 // return config of .ssh/config
 func LoadSshConfig() ([]*Node, error) {
-	f, _ := os.Open(SshPath)
+	f, err := os.Open(SshPath)
+	var nc []*Node
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nc, nil
+		}
+		return nil, err
+	}
 	defer func() {
 		_ = f.Close()
 	}()
 	loader := NewSshConfigLoader(f)
-	var nc []*Node
 	if err := loader.Decode(&nc); err != nil {
 		return nil, err
 	}
