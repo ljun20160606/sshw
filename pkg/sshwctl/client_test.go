@@ -58,3 +58,52 @@ func Test_execsVar(t *testing.T) {
 	envValue := os.Getenv(envName)
 	ast.Equal("1", envValue)
 }
+
+func Test_parseFileName(t *testing.T) {
+	type args struct {
+		path string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "with filename",
+			args: args{path: "./test/test.txt"},
+			want: "test.txt",
+		},
+		{
+			name: "absolute filename",
+			args: args{path: "/test/test.txt"},
+			want: "test.txt",
+		},
+		{
+			name: "empty filename",
+			args: args{path: "./test/"},
+			want: "",
+		},
+		{
+			name: "only dot",
+			args: args{path: "."},
+			want: "",
+		},
+		{
+			name: "only relative local",
+			args: args{path: "./"},
+			want: "",
+		},
+		{
+			name: "empty",
+			args: args{path: ""},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseFileName(tt.args.path); got != tt.want {
+				t.Errorf("parseFileName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

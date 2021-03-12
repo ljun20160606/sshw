@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -385,6 +386,20 @@ func (c *customReadCloser) Close() error {
 	return c.c.Close()
 }
 
+// input: './foo/test.txt' return: 'test.txt'
+// input: './' return: ''
+// input: '.' return: ''
+func parseFileName(path string) string {
+	path = strings.Trim(path, " \t")
+	if path == "" {
+		return ""
+	}
+	if strings.HasSuffix(path, string(filepath.Separator)) || strings.HasSuffix(path, ".") {
+		return ""
+	}
+	return filepath.Base(path)
+}
+
 // like shell scp
 // cp local file into server
 func (c *localClient) scp(cp *NodeCp) error {
@@ -399,7 +414,10 @@ func (c *localClient) scp(cp *NodeCp) error {
 		if err != nil {
 			return err
 		}
-		fileInfoFromOS := scp.NewFileInfoFromOS(fileInfo, "")
+
+		fileName := parseFileName(cp.Tgt)
+
+		fileInfoFromOS := scp.NewFileInfoFromOS(fileInfo, fileName)
 		f, err := os.Open(cp.Src)
 		if err != nil {
 			return err
