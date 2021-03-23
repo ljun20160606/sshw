@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/ljun20160606/sshw/pkg/multiplex"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
@@ -217,9 +218,11 @@ func ExecClient(client sshwctl.Client, node *sshwctl.Node) error {
 		}
 		return nil
 	})
-	if err := client.Scp(); err != nil {
+
+	if err := client.Scp(context.Background()); err != nil {
 		return err
 	}
+
 	if len(node.Scps) != 0 && len(node.CallbackShells) == 0 {
 		return nil
 	}

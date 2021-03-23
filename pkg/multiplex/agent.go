@@ -1,6 +1,7 @@
 package multiplex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -62,7 +63,12 @@ func (m *masterClient) Connect() error {
 	return nil
 }
 
-func (m *masterClient) Scp() error {
+var (
+	sigint  = []byte{3}
+	sigterm = []byte{4}
+)
+
+func (m *masterClient) Scp(_ context.Context) error {
 	if len(m.Node.Scps) == 0 {
 		return nil
 	}
@@ -70,7 +76,16 @@ func (m *masterClient) Scp() error {
 	if err != nil {
 		return err
 	}
-	_ = Forward(num)
+
+	done := make(chan struct{})
+	defer close(done)
+	wrapperConn := Forward(num, func(p []byte) {
+		// cancel scp
+		if bytes.Equal(p, sigint) || bytes.Equal(p, sigterm) {
+			done <- struct{}{}
+		}
+	})
+	defer wrapperConn.Close()
 	conn, _ := net.Dial("unix", SocketPath)
 	writer := NewJsonProtoWriter(conn)
 	clientReq := &ClientRequest{
@@ -83,6 +98,26 @@ func (m *masterClient) Scp() error {
 		Body: body,
 	})
 
+	// wait cancel scp
+	go func() {
+		select {
+		case _, ok := <-done:
+			if !ok {
+				return
+			}
+			conn, _ := net.Dial("unix", SocketPath)
+			writer := NewJsonProtoWriter(conn)
+			clientReq := &ClientRequest{
+				Num: num,
+			}
+			body, _ := json.Marshal(clientReq)
+			_ = writer.Write(&Request{
+				Path: PathCancel,
+				Body: body,
+			})
+		}
+	}()
+
 	reader := NewJsonProtoReader(conn)
 	return readSuccess(reader)
 }
@@ -92,7 +127,8 @@ func (m *masterClient) Shell() error {
 	if err != nil {
 		return err
 	}
-	_ = Forward(num)
+	wrapperConn := Forward(num)
+	defer wrapperConn.Close()
 	conn, _ := net.Dial("unix", SocketPath)
 	writer := NewJsonProtoWriter(conn)
 	clientReq := &ClientRequest{
@@ -165,18 +201,36 @@ func rpcGet(path string, result interface{}) error {
 	return json.Unmarshal(p.Data, result)
 }
 
-func Forward(num int64) chan error {
-	errCh := make(chan error)
+func Forward(num int64, filters ...func(p []byte)) *WrapperConn {
+	wrapperConn := NewWrapperConn()
+
 	group := &sync.WaitGroup{}
 	group.Add(3)
-	go connOut(group, PathStdout, num, os.Stdout, errCh)
-	go connOut(group, PathStderr, num, os.Stderr, errCh)
-	go connIn(group, PathStdin, num, errCh)
+
+	go func() {
+		conn := connOut(group, PathStdout, num, os.Stdout, wrapperConn.errCh)
+		wrapperConn.Lock()
+		wrapperConn.connOut = conn
+		wrapperConn.Unlock()
+	}()
+	go func() {
+		conn := connOut(group, PathStderr, num, os.Stderr, wrapperConn.errCh)
+		wrapperConn.Lock()
+		wrapperConn.connErr = conn
+		wrapperConn.Unlock()
+	}()
+	go func() {
+		conn := connIn(wrapperConn.ctx, group, PathStdin, num, wrapperConn.errCh, filters...)
+		wrapperConn.Lock()
+		wrapperConn.connIn = conn
+		wrapperConn.Unlock()
+	}()
 	group.Wait()
-	return errCh
+
+	return wrapperConn
 }
 
-func connOut(group *sync.WaitGroup, path string, num int64, writer io.Writer, errCh chan error) {
+func connOut(group *sync.WaitGroup, path string, num int64, writer io.Writer, errCh chan error) net.Conn {
 	conn, _ := net.Dial("unix", SocketPath)
 	w := NewJsonProtoWriter(conn)
 	bytes, _ := json.Marshal(num)
@@ -185,44 +239,47 @@ func connOut(group *sync.WaitGroup, path string, num int64, writer io.Writer, er
 		Body: bytes,
 	})
 	group.Done()
-	_, err := io.Copy(writer, conn)
-	select {
-	case errCh <- err:
-	default:
-	}
+	go func() {
+		_, err := io.Copy(writer, conn)
+		select {
+		case errCh <- err:
+		default:
+		}
+	}()
+	return conn
 }
 
 type WrapperConn struct {
-	conn       net.Conn
+	sync.Mutex
+
+	connIn  net.Conn
+	connOut net.Conn
+	connErr net.Conn
+
+	errCh      chan error
 	cancelFunc context.CancelFunc
 	ctx        context.Context
 }
 
-func (w *WrapperConn) Close() error {
-	err := w.conn.Close()
+func (w *WrapperConn) Close() {
+	w.connIn.Close()
+	w.connOut.Close()
+	w.connErr.Close()
 	w.cancelFunc()
-	return err
+	close(w.errCh)
 }
 
-// 全局唯一
-var tempConn *WrapperConn
-
-func setTempConn(c net.Conn) context.Context {
-	if tempConn != nil {
-		_ = tempConn.Close()
-	}
+func NewWrapperConn() *WrapperConn {
 	ctx, cancelFunc := context.WithCancel(context.Background())
-	tempConn = &WrapperConn{
-		conn:       c,
+	return &WrapperConn{
 		cancelFunc: cancelFunc,
 		ctx:        ctx,
+		errCh:      make(chan error),
 	}
-	return ctx
 }
 
-func connIn(group *sync.WaitGroup, path string, num int64, errCh chan error) {
+func connIn(ctx context.Context, group *sync.WaitGroup, path string, num int64, errCh chan error, filters ...func(p []byte)) net.Conn {
 	conn, _ := net.Dial("unix", SocketPath)
-	ctx := setTempConn(conn)
 	w := NewJsonProtoWriter(conn)
 	bytes, _ := json.Marshal(num)
 	_ = w.Write(&Request{
@@ -230,21 +287,26 @@ func connIn(group *sync.WaitGroup, path string, num int64, errCh chan error) {
 		Body: bytes,
 	})
 	group.Done()
-	_, err := io.Copy(sshwctl.WriterFunc(func(p []byte) (int, error) {
-		// 由于stdin block模式容易阻塞住上一次read，所以上一次read会阻塞住读到下一次copy的数据，所以需要写到新的conn中
-		return tempConn.conn.Write(p)
-	}), sshwctl.ReaderFunc(func(p []byte) (int, error) {
+	go func() {
+		_, err := io.Copy(sshwctl.WriterFunc(func(p []byte) (int, error) {
+			for _, filter := range filters {
+				filter(p)
+			}
+			return conn.Write(p)
+		}), sshwctl.ReaderFunc(func(p []byte) (int, error) {
+			select {
+			case <-ctx.Done():
+				return 0, io.EOF
+			default:
+				return os.Stdin.Read(p)
+			}
+		}))
 		select {
-		case <-ctx.Done():
-			return 0, io.EOF
+		case errCh <- err:
 		default:
-			return os.Stdin.Read(p)
 		}
-	}))
-	select {
-	case errCh <- err:
-	default:
-	}
+	}()
+	return conn
 }
 
 // send fd

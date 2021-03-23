@@ -1,6 +1,7 @@
 package multiplex
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/ljun20160606/sshw/pkg/sshwctl"
@@ -21,6 +22,7 @@ const (
 	PathSession    = "session"
 	PathTerminal   = PathSession + "/terminal"
 	PathScp        = PathSession + "/scp"
+	PathCancel     = "/cancel"
 )
 
 type StdConn struct {
@@ -73,6 +75,8 @@ type MasterHandler struct {
 	connMap sync.Map
 	// { [node.string]: [sshwClient] }
 	clientMap *TimerMap
+
+	processMap sync.Map
 }
 
 func NewMasterHandler() Handler {
@@ -130,13 +134,25 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 		}
 		return
 	}
+	if strings.HasPrefix(req.Path, PathCancel) {
+		parsedClientRequest := &ClientRequest{}
+		_ = json.Unmarshal(req.Body, parsedClientRequest)
+		num := parsedClientRequest.Num
+		if value, has := m.processMap.Load(num); has {
+			fmt.Printf("cancel session, num[%d]\n", num)
+			cancelFunc := value.(context.CancelFunc)
+			cancelFunc()
+		}
+		return
+	}
 	// load a client, and create session
 	if strings.HasPrefix(req.Path, PathSession) {
 		parsedClientRequest := &ClientRequest{}
 		_ = json.Unmarshal(req.Body, parsedClientRequest)
-		load, ok := m.connMap.Load(parsedClientRequest.Num)
+		num := parsedClientRequest.Num
+		load, ok := m.connMap.Load(num)
 		if !ok {
-			m.Fail(w, errors.New(fmt.Sprintf("no such num %v", parsedClientRequest.Num)))
+			m.Fail(w, errors.New(fmt.Sprintf("no such num %v", num)))
 			m.CloseConn(w)
 			return
 		}
@@ -153,7 +169,15 @@ func (m *MasterHandler) Serve(w ResponseWriter, req *Request) {
 			return
 		}
 		if strings.HasPrefix(req.Path, PathScp) {
-			m.Process(w, stdConn, client.Scp)
+			ctx, cancelFunc := context.WithCancel(context.Background())
+			m.processMap.Store(num, cancelFunc)
+			defer func() {
+				m.processMap.Delete(num)
+				cancelFunc()
+			}()
+			m.Process(w, stdConn, func() error {
+				return client.Scp(ctx)
+			})
 			return
 		}
 		if strings.HasPrefix(req.Path, PathTerminal) {
@@ -237,13 +261,13 @@ func (m *MasterHandler) Process(w ResponseWriter, stdConn *StdConn, callables ..
 	m.CloseStd(stdConn)
 }
 
-// close sshwctl std conn
+// close sshwctl std connIn
 func (m *MasterHandler) CloseStd(stdConn *StdConn) {
 	_ = stdConn.Close()
 	m.connMap.Delete(stdConn.Num)
 }
 
-// close serve conn
+// close serve connIn
 func (m *MasterHandler) CloseConn(w ResponseWriter) {
 	_ = w.Conn().Close()
 }

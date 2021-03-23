@@ -53,7 +53,7 @@ type Client interface {
 
 	// -----local or remote
 	Connect() error
-	Scp() error
+	Scp(ctx context.Context) error
 	Shell() error
 	Close() error
 
@@ -237,14 +237,14 @@ func (c *localClient) InitTerminal() error {
 	return nil
 }
 
-func (c *localClient) Scp() error {
+func (c *localClient) Scp(ctx context.Context) error {
 	if c.client == nil {
 		return errors.New("scp must start client")
 	}
 
 	for i := range c.node.Scps {
 		nodeCp := c.node.Scps[i]
-		if err := c.scp(nodeCp); err != nil {
+		if err := c.scp(ctx, nodeCp); err != nil {
 			return err
 		}
 	}
@@ -402,8 +402,8 @@ func parseFileName(path string) string {
 
 // like shell scp
 // cp local file into server
-func (c *localClient) scp(cp *NodeCp) error {
-	newSCP := scp.NewSCP(c.client)
+func (c *localClient) scp(ctx context.Context, cp *NodeCp) error {
+	newSCP := scp.NewSCP(c.client, scp.WithContext(ctx))
 	// receive
 	if cp.IsReceive {
 		if err := newSCP.ReceiveFile(cp.Src, cp.Tgt); err != nil {
