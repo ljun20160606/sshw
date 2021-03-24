@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/go-version v1.2.0
 	github.com/kevinburke/ssh_config v0.0.0-20190630040420-2e50c441276c
 	github.com/ljun20160606/eventbus v0.0.0-20200321135348-acd5434c3c93
-	github.com/ljun20160606/go-scp v0.0.1
+	github.com/ljun20160606/go-scp v0.0.2
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/magefile/mage v1.8.0
 	github.com/manifoldco/promptui v0.3.2

@@ -400,44 +400,65 @@ func parseFileName(path string) string {
 	return filepath.Base(path)
 }
 
+type processPrinterSourceObserver struct {
+	w  io.Writer
+	wc *WriteCounter
+}
+
+func (pp *processPrinterSourceObserver) OnFileInfo(fileInfo *scp.FileInfo) {
+	_, _ = pp.w.Write([]byte("\rFile Size: " + humanize.Bytes(uint64(fileInfo.Size())) + "\n"))
+
+	writeCounter := NewWriteCounter()
+	writeCounter.ProgressTemplate = "Downloading"
+	writeCounter.W = pp.w
+
+	pp.wc = writeCounter
+}
+
+func (pp *processPrinterSourceObserver) OnWrite(p []byte) {
+	_, _ = pp.wc.Write(p)
+}
+
 // like shell scp
 // cp local file into server
 func (c *localClient) scp(ctx context.Context, cp *NodeCp) error {
 	newSCP := scp.NewSCP(c.client, scp.WithContext(ctx))
 	// receive
 	if cp.IsReceive {
-		if err := newSCP.ReceiveFile(cp.Src, cp.Tgt); err != nil {
-			return err
-		}
-	} else {
-		fileInfo, err := os.Stat(cp.Src)
-		if err != nil {
-			return err
-		}
+		scp.WithSourceObserver(&processPrinterSourceObserver{w: c.node.stdout()})(newSCP)
+		return newSCP.ReceiveFile(cp.Src, cp.Tgt)
+	}
+	return sendFileToRemote(cp, c, newSCP)
+}
 
-		fileName := parseFileName(cp.Tgt)
+func sendFileToRemote(cp *NodeCp, c *localClient, newSCP *scp.SCP) error {
+	fileInfo, err := os.Stat(cp.Src)
+	if err != nil {
+		return err
+	}
 
-		fileInfoFromOS := scp.NewFileInfoFromOS(fileInfo, fileName)
-		f, err := os.Open(cp.Src)
-		if err != nil {
-			return err
-		}
+	fileName := parseFileName(cp.Tgt)
 
-		// show processing
-		_, _ = c.node.stdout().Write([]byte("\rFile Size: " + humanize.Bytes(uint64(fileInfo.Size())) + "\n"))
-		r := &customReadCloser{
-			r: io.TeeReader(f, &WriteCounter{
-				W:                c.node.stdout(),
-				ProgressTemplate: "Uploading",
-			}),
-			c: f,
-		}
-		if err := newSCP.Send(fileInfoFromOS, r, cp.Tgt); err != nil {
-			// print new line
-			// avoid output is  'xxx completeerr'
-			c.node.stdout().Write([]byte{'\n'})
-			return err
-		}
+	fileInfoFromOS := scp.NewFileInfoFromOS(fileInfo, fileName)
+	f, err := os.Open(cp.Src)
+	if err != nil {
+		return err
+	}
+
+	// show processing
+	_, _ = c.node.stdout().Write([]byte("\rFile Size: " + humanize.Bytes(uint64(fileInfo.Size())) + "\n"))
+	r := &customReadCloser{
+		r: io.TeeReader(f, &WriteCounter{
+			W:                c.node.stdout(),
+			ProgressTemplate: "Uploading",
+		}),
+		c: f,
+	}
+	if err := newSCP.Send(fileInfoFromOS, r, cp.Tgt); err != nil {
+		// print new line
+		// avoid output is  'xxx completeerr'
+		c.node.stdout().Write([]byte{'\n'})
+		return err
 	}
 	return nil
 }
