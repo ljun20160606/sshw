@@ -77,12 +77,15 @@ func (m *masterClient) Scp(_ context.Context) error {
 		return err
 	}
 
+	once := sync.Once{}
 	done := make(chan struct{})
 	defer close(done)
 	wrapperConn := Forward(num, func(p []byte) {
 		// cancel scp
 		if bytes.Equal(p, sigint) || bytes.Equal(p, sigterm) {
-			done <- struct{}{}
+			once.Do(func() {
+				done <- struct{}{}
+			})
 		}
 	})
 	defer wrapperConn.Close()
