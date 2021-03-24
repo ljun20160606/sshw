@@ -424,7 +424,7 @@ func (c *localClient) scp(ctx context.Context, cp *NodeCp) error {
 		}
 
 		// show processing
-		_, _ = c.node.stdout().Write([]byte("File Size: " + humanize.Bytes(uint64(fileInfo.Size())) + "\n"))
+		_, _ = c.node.stdout().Write([]byte("\rFile Size: " + humanize.Bytes(uint64(fileInfo.Size())) + "\n"))
 		r := &customReadCloser{
 			r: io.TeeReader(f, &WriteCounter{
 				W:                c.node.stdout(),
@@ -433,6 +433,9 @@ func (c *localClient) scp(ctx context.Context, cp *NodeCp) error {
 			c: f,
 		}
 		if err := newSCP.Send(fileInfoFromOS, r, cp.Tgt); err != nil {
+			// print new line
+			// avoid output is  'xxx completeerr'
+			c.node.stdout().Write([]byte{'\n'})
 			return err
 		}
 	}
